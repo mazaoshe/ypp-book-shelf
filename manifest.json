@@ -1,0 +1,10 @@
+{
+  "id": "ypp-book-shelf",
+  "name": "YPP Book Shelf",
+  "version": "0.1.0",
+  "minAppVersion": "1.4.0",
+  "description": "Browse book notes in your vault as a cover shelf, and fetch covers and metadata from WeRead and Douban.",
+  "author": "杨鹏鹏",
+  "authorUrl": "https://yppnote.com",
+  "isDesktopOnly": false
+}
