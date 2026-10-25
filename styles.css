@@ -290,6 +290,37 @@
   margin-bottom: 3px;
 }
 
+.bs-result-src {
+  display: flex;
+  gap: 4px;
+  margin-top: 4px;
+}
+
+.bs-src {
+  font-size: 10px;
+  line-height: 1.6;
+  padding: 0 5px;
+  border-radius: 3px;
+  color: var(--text-muted);
+  border: 1px solid var(--background-modifier-border);
+}
+
+.bs-src-weread {
+  color: var(--color-blue);
+  border-color: var(--color-blue);
+}
+
+.bs-src-douban {
+  color: var(--color-green);
+  border-color: var(--color-green);
+}
+
+.bs-status-err {
+  margin-top: 6px;
+  font-size: 11px;
+  color: var(--text-error);
+}
+
 .bs-result-intro {
   font-size: 11.5px;
   color: var(--text-faint);

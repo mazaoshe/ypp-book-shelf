@@ -28,6 +28,10 @@ interface WereadResponse {
 interface DoubanSuggestItem {
   type?: string;
   url?: string;
+  id?: string;
+  title?: string;
+  pic?: string;
+  year?: string;
   author_name?: string;
 }
 
@@ -73,6 +77,8 @@ export async function searchWeread(keyword: string): Promise<BookMeta[]> {
             }`
           : "",
       sourceUrl: info.deepLink ?? "",
+      origin: "weread",
+      sources: ["weread"],
     });
   }
   return out;
@@ -93,6 +99,47 @@ function pick(html: string, re: RegExp): string {
   return m ? stripTags(m[1]).trim() : "";
 }
 
+async function suggestDouban(keyword: string): Promise<DoubanSuggestItem[]> {
+  const sres = await requestUrl({
+    url: `${DOUBAN_SUGGEST}?q=${encodeURIComponent(keyword)}`,
+    method: "GET",
+    headers: { Referer: DOUBAN_REFERER },
+    throw: false,
+  });
+  if (sres.status !== 200) {
+    throw new Error(t("豆瓣搜索失败（HTTP {status}）", { status: sres.status }));
+  }
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(sres.text);
+  } catch {
+    throw new Error(t("豆瓣返回内容无法解析"));
+  }
+  const list = Array.isArray(parsed) ? (parsed as DoubanSuggestItem[]) : [];
+  return list.filter((x) => x && x.type === "b" && x.url);
+}
+
+/**
+ * 用豆瓣的 suggest 接口搜索，返回书名、作者、封面、出版年。
+ * 没有简介和评分，需要的话再抓详情页。
+ */
+export async function searchDouban(keyword: string): Promise<BookMeta[]> {
+  const books = await suggestDouban(keyword);
+  return books.map((b) => {
+    const subjectId = String(b.url ?? "").match(/subject\/(\d+)/)?.[1] ?? "";
+    return {
+      title: b.title ?? "",
+      author: b.author_name ?? "",
+      cover: b.pic ?? "",
+      yearPublished: b.year ?? "",
+      sourceUrl: b.url ?? "",
+      subjectId,
+      origin: "douban" as const,
+      sources: ["douban" as const],
+    };
+  });
+}
+
 /**
  * 豆瓣网页接口：先 suggest 搜索，再抓详情页拿 ISBN / 页数 / 出版年。
  * 豆瓣详情页需要带 Referer，纯请求会 418。
@@ -101,22 +148,12 @@ export async function fetchDouban(
   keyword: string,
   expectAuthor?: string
 ): Promise<DoubanMeta | null> {
-  const sres = await requestUrl({
-    url: `${DOUBAN_SUGGEST}?q=${encodeURIComponent(keyword)}`,
-    method: "GET",
-    headers: { Referer: DOUBAN_REFERER },
-    throw: false,
-  });
-  if (sres.status !== 200) return null;
-
-  let list: DoubanSuggestItem[] = [];
+  let books: DoubanSuggestItem[] = [];
   try {
-    const parsed = JSON.parse(sres.text) as unknown;
-    list = Array.isArray(parsed) ? (parsed as DoubanSuggestItem[]) : [];
+    books = await suggestDouban(keyword);
   } catch {
     return null;
   }
-  const books = list.filter((x) => x && x.type === "b" && x.url);
   if (books.length === 0) return null;
 
   // 优先挑作者能对上的那条，都没有就用第一条
@@ -130,6 +167,12 @@ export async function fetchDouban(
   }
 
   const subjectId = String(chosen.url).match(/subject\/(\d+)/)?.[1] ?? "";
+  if (!subjectId) return null;
+  return fetchDoubanById(subjectId);
+}
+
+/** 直接抓豆瓣详情页（已知 subject id 时用，省一次 suggest 请求） */
+export async function fetchDoubanById(subjectId: string): Promise<DoubanMeta | null> {
   if (!subjectId) return null;
 
   const dres = await requestUrl({

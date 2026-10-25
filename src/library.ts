@@ -2,6 +2,7 @@ import { App } from "obsidian";
 import { BookItem } from "./types";
 import { asStr, getFm } from "./fm";
 import type { BookShelfSettings } from "./settings";
+import { markdownIn } from "./vaultScope";
 
 export const STATUS_ALIASES: Record<string, string> = {
   在读: "在读",
@@ -55,10 +56,7 @@ function dedupe(items: BookItem[], root: string): BookItem[] {
 
 
 export function collectBooks(app: App, s: BookShelfSettings) {
-  const folder = (s.folder || "").replace(/\/$/, "");
-  const files = app.vault
-    .getMarkdownFiles()
-    .filter((f) => (folder ? f.path.startsWith(folder + "/") : true));
+  const files = markdownIn(app, s.folder || "");
 
   const items: BookItem[] = [];
   for (const file of files) {
@@ -98,6 +96,6 @@ export function collectBooks(app: App, s: BookShelfSettings) {
       status,
     });
   }
-  return dedupe(items, folder);
+  return dedupe(items, (s.folder || "").replace(/\/$/, ""));
 }
 

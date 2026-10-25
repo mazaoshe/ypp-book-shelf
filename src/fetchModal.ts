@@ -1,10 +1,11 @@
 import { App, Modal, Notice, TFile, TFolder, normalizePath } from "obsidian";
 import type BookShelfPlugin from "./main";
-import { fetchDouban, searchWeread } from "./sources";
+import { fetchDouban, fetchDoubanById, searchDouban, searchWeread } from "./sources";
 import { BookMeta } from "./types";
 import { buildBookNote, DoubanLite } from "./noteTemplate";
 import type { DoubanMeta } from "./types";
 import { asStr, getFm } from "./fm";
+import { markdownIn } from "./vaultScope";
 import { t } from "./i18n";
 
 function sanitizeName(s: string): string {
@@ -13,6 +14,28 @@ function sanitizeName(s: string): string {
     .replace(/\s+/g, " ")
     .trim()
     .slice(0, 80);
+}
+
+type SourceKind = "weread" | "douban";
+
+/** requestUrl 没有内置超时，超时就当这个源不可用，别让整次搜索卡住 */
+function withTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = window.setTimeout(
+      () => reject(new Error(t("请求超时"))),
+      ms
+    );
+    p.then(
+      (v) => {
+        window.clearTimeout(timer);
+        resolve(v);
+      },
+      (e) => {
+        window.clearTimeout(timer);
+        reject(e instanceof Error ? e : new Error(String(e)));
+      }
+    );
+  });
 }
 
 export class FetchModal extends Modal {
@@ -98,6 +121,11 @@ export class FetchModal extends Modal {
     if (this.statusEl) this.statusEl.setText(text);
   }
 
+  private sourceLabel(kind: SourceKind): string {
+    return kind === "weread" ? t("微信读书") : t("豆瓣");
+  }
+
+  /** 多源并发搜索：每个源独立超时，一个挂了不影响其它 */
   async runSearch() {
     const kw = this.contentEl
       .querySelector<HTMLInputElement>(".bs-modal-input")
@@ -106,23 +134,98 @@ export class FetchModal extends Modal {
       this.setStatus(t("先输入书名"));
       return;
     }
+    const s = this.plugin.settings;
+    const tasks: { src: SourceKind; p: Promise<BookMeta[]> }[] = [];
+    if (s.enableWeread) tasks.push({ src: "weread", p: withTimeout(searchWeread(kw), 8000) });
+    if (s.enableDouban) tasks.push({ src: "douban", p: withTimeout(searchDouban(kw), 8000) });
+    if (tasks.length === 0) {
+      this.setStatus(t("两个搜索源都关掉了，去设置里打开一个"));
+      return;
+    }
+
     this.keyword = kw;
     this.searchBtn.disabled = true;
-    this.setStatus(t("正在搜索微信读书…"));
     this.resultsEl.empty();
+    this.setStatus(t("正在搜索…"));
     try {
-      const list = await searchWeread(kw);
-      if (list.length === 0) {
-        this.setStatus(t("没有搜到结果，换个关键词试试"));
+      const settled = await Promise.allSettled(tasks.map((x) => x.p));
+      const groups: { src: SourceKind; list: BookMeta[] }[] = [];
+      const errors: string[] = [];
+      settled.forEach((r, i) => {
+        const src = tasks[i].src;
+        if (r.status === "fulfilled") {
+          groups.push({ src, list: r.value });
+        } else {
+          errors.push(`${this.sourceLabel(src)}: ${r.reason instanceof Error ? r.reason.message : String(r.reason)}`);
+        }
+      });
+
+      const merged = this.mergeResults(groups);
+      if (merged.length === 0) {
+        this.setStatus(
+          errors.length > 0
+            ? t("搜索失败：{msg}", { msg: errors.join("；") })
+            : t("没有搜到结果，换个关键词试试")
+        );
         return;
       }
-      this.setStatus(t("找到 {n} 条，点击右侧「用这条」写入属性", { n: list.length }));
-      for (const item of list) this.renderResult(item);
-    } catch (e) {
-      this.setStatus(t("搜索失败：{msg}", { msg: (e as Error).message }));
+      const counts = groups
+        .map((g) => `${this.sourceLabel(g.src)} ${g.list.length}`)
+        .join(" · ");
+      this.setStatus(
+        t("找到 {n} 条（{counts}），点击右侧「用这条」写入属性", {
+          n: merged.length,
+          counts,
+        })
+      );
+      for (const item of merged) this.renderResult(item);
+      if (errors.length > 0) {
+        this.statusEl.createDiv({ cls: "bs-status-err", text: errors.join("；") });
+      }
     } finally {
       this.searchBtn.disabled = false;
     }
+  }
+
+  /** 同名书合并成一条，先到的源（微信读书）优先，只补空缺字段 */
+  private mergeResults(groups: { src: SourceKind; list: BookMeta[] }[]): BookMeta[] {
+    const out: BookMeta[] = [];
+    const index = new Map<string, BookMeta>();
+    for (const g of groups) {
+      for (const m of g.list) {
+        const key = FetchModal.norm(m.title ?? "");
+        if (!key) continue;
+        const hit = index.get(key);
+        if (!hit) {
+          const copy: BookMeta = { ...m, sources: [...(m.sources ?? [g.src])] };
+          index.set(key, copy);
+          out.push(copy);
+          continue;
+        }
+        const fill = <K extends keyof BookMeta>(k: K) => {
+          if (!hit[k] && m[k]) hit[k] = m[k];
+        };
+        (
+          [
+            "author",
+            "translator",
+            "publisher",
+            "cover",
+            "intro",
+            "rating",
+            "isbn",
+            "yearPublished",
+            "sourceUrl",
+            "bookId",
+            "subjectId",
+          ] as (keyof BookMeta)[]
+        ).forEach((k) => fill(k));
+        if (!hit.sources?.includes(g.src)) {
+          hit.sources = [...(hit.sources ?? []), g.src];
+        }
+      }
+    }
+    return out;
   }
 
   private renderResult(meta: BookMeta) {
@@ -144,6 +247,13 @@ export class FetchModal extends Modal {
     if (meta.publisher) sub.push(meta.publisher);
     if (meta.rating) sub.push(t("推荐 {rating}", { rating: meta.rating }));
     info.createDiv({ cls: "bs-result-sub", text: sub.join(" · ") });
+    const srcs = meta.sources ?? (meta.origin ? [meta.origin] : []);
+    if (srcs.length > 0) {
+      const badge = info.createDiv({ cls: "bs-result-src" });
+      for (const one of srcs) {
+        badge.createSpan({ cls: `bs-src bs-src-${one}`, text: this.sourceLabel(one) });
+      }
+    }
     if (meta.intro) {
       info.createDiv({ cls: "bs-result-intro", text: meta.intro.slice(0, 120) + "…" });
     }
@@ -197,7 +307,7 @@ export class FetchModal extends Modal {
     if (!target) return null;
     const root = (this.plugin.settings.folder || "").replace(/\/$/, "");
     const cands: { file: TFile; score: number }[] = [];
-    for (const f of this.app.vault.getMarkdownFiles()) {
+    for (const f of markdownIn(this.app, root)) {
       const base = FetchModal.norm(f.basename);
       const fm = getFm(this.app, f);
       const rawTitle = asStr(fm["title"])
@@ -253,17 +363,16 @@ export class FetchModal extends Modal {
     let isNew = this.isNew;
 
     let douban: DoubanMeta | null = null;
-    if (this.useDouban || isNew) {
+    // 豆瓣来的结果已经知道 subject id，直接抓详情页；其它来源走关键词搜索
+    if (this.useDouban || isNew || meta.origin === "douban" || meta.subjectId) {
       this.setStatus(t("正在查豆瓣的 ISBN / 页数…"));
       try {
-        douban = await fetchDouban(meta.title ?? this.keyword, meta.author);
+        douban = meta.subjectId
+          ? await fetchDoubanById(meta.subjectId)
+          : await fetchDouban(meta.title ?? this.keyword, meta.author);
       } catch {
         douban = null;
       }
-    }
-    if (isNew && !this.useDouban) {
-      // 新建笔记要把豆瓣信息写进版面，即使没勾选也至少尝试一次
-      douban = douban ?? null;
     }
 
     if (isNew) {
@@ -304,6 +413,8 @@ export class FetchModal extends Modal {
       if (meta.author) setIfEmpty(s.authorField || "author", [meta.author]);
       if (meta.publisher && !isNew) setIfEmpty("publisher", meta.publisher);
       if (meta.intro) setIfEmpty("desc", meta.intro);
+      else if (douban?.desc) setIfEmpty("desc", douban.desc);
+      if (douban?.rating) setIfEmpty("doubanRating", douban.rating);
       if (meta.isbn) setIfEmpty("isbn", meta.isbn);
       if (douban) {
         if (douban.isbn) setIfEmpty("isbn", douban.isbn);

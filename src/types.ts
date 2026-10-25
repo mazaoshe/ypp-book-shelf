@@ -14,6 +14,12 @@ export interface BookMeta {
   rating?: string;
   sourceUrl?: string;
   bookId?: string;
+  /** 豆瓣 subject id，用于直接抓详情页 */
+  subjectId?: string;
+  /** 主要来源（决定详情页怎么取） */
+  origin?: "weread" | "douban";
+  /** 这条结果由哪些源提供 */
+  sources?: ("weread" | "douban")[];
 }
 
 export interface DoubanMeta {

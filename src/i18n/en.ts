@@ -172,4 +172,20 @@ export const EN: Record<string, string> = {
     "Not enough books yet — add a genre field in the frontmatter",
   "偏好出版方": "Top publishers",
   "还没有 publisher 字段": "No publisher field yet",
+  "微信读书": "WeRead",
+  "豆瓣": "Douban",
+  "正在搜索…": "Searching…",
+  "找到 {n} 条（{counts}），点击右侧「用这条」写入属性":
+    "{n} results ({counts}) — click “Use this” to fill in the fields",
+  "两个搜索源都关掉了，去设置里打开一个":
+    "Both search sources are off — enable one in settings",
+  "请求超时": "Request timed out",
+  "豆瓣搜索失败（HTTP {status}）": "Douban search failed (HTTP {status})",
+  "豆瓣返回内容无法解析": "Could not parse the Douban response",
+  "搜书用微信读书": "Search with WeRead",
+  "搜书用豆瓣": "Search with Douban",
+  "中文书的封面、简介、评分比较全。关掉后只用其它源":
+    "Best covers, intros and ratings for Chinese books. Turn it off to use other sources only",
+  "英文书和冷门书靠它，还能补 ISBN / 页数 / 出版年。两个开关都关掉就搜不到东西":
+    "Cover for English and obscure books, and adds ISBN / pages / year. Turning both off leaves nothing to search",
 };

@@ -6,6 +6,7 @@ import { DeleteBookModal } from "./deleteModal";
 import { BookItem } from "./types";
 import { collectBooks } from "./library";
 import { asStr } from "./fm";
+import { childFiles } from "./vaultScope";
 
 export const VIEW_TYPE_BOOK_SHELF = "book-shelf-view";
 
@@ -321,9 +322,7 @@ export class BookShelfView extends ItemView {
   private async setPrimary(book: BookItem) {
     const parent = book.file.parent;
     if (!parent) return;
-    const siblings = this.app.vault
-      .getMarkdownFiles()
-      .filter((f) => f.parent === parent);
+    const siblings = childFiles(parent);
     for (const f of siblings) {
       const isTarget = f.path === book.file.path;
       await this.app.fileManager.processFrontMatter(

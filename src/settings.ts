@@ -13,6 +13,7 @@ export interface BookShelfSettings {
   coverField: string;
   authorField: string;
   enableDouban: boolean;
+  enableWeread: boolean;
   coverFileName: string;
   requireDesc: boolean;
   defaultFrontmatter: string;
@@ -38,6 +39,7 @@ export const DEFAULT_SETTINGS: BookShelfSettings = {
   coverField: "cover",
   authorField: "author",
   enableDouban: true,
+  enableWeread: true,
   coverFileName: "cover.jpg",
   requireDesc: false,
   defaultFrontmatter: "",
@@ -211,8 +213,20 @@ export class BookShelfSettingTab extends PluginSettingTab {
       );
 
     new Setting(containerEl)
-      .setName(t("用豆瓣补 ISBN / 页数 / 出版年"))
-      .setDesc(t("微信读书没有这几个字段。豆瓣网页接口需要 Referer，失败不影响封面和简介"))
+      .setName(t("搜书用微信读书"))
+      .setDesc(t("中文书的封面、简介、评分比较全。关掉后只用其它源"))
+      .addToggle((tc) =>
+        tc.setValue(this.plugin.settings.enableWeread).onChange(async (v) => {
+          this.plugin.settings.enableWeread = v;
+          await this.plugin.saveSettings();
+        })
+      );
+
+    new Setting(containerEl)
+      .setName(t("搜书用豆瓣"))
+      .setDesc(
+        t("英文书和冷门书靠它，还能补 ISBN / 页数 / 出版年。两个开关都关掉就搜不到东西")
+      )
       .addToggle((tc) =>
         tc.setValue(this.plugin.settings.enableDouban).onChange(async (v) => {
           this.plugin.settings.enableDouban = v;

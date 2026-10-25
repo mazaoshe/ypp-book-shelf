@@ -1,4 +1,5 @@
-import { AbstractInputSuggest, App, TFolder } from "obsidian";
+import { AbstractInputSuggest, App } from "obsidian";
+import { folderPaths } from "./vaultScope";
 
 /** 目录输入框的自动补全：列出库里所有目录，输入片段过滤 */
 export class FolderSuggest extends AbstractInputSuggest<string> {
@@ -17,11 +18,7 @@ export class FolderSuggest extends AbstractInputSuggest<string> {
 
   getSuggestions(query: string): string[] {
     const q = query.trim().toLowerCase();
-    const all = this.app.vault
-      .getAllLoadedFiles()
-      .filter((f): f is TFolder => f instanceof TFolder)
-      .map((f) => f.path)
-      .filter((p) => p !== "/");
+    const all = folderPaths(this.app);
     const hit = q ? all.filter((p) => p.toLowerCase().includes(q)) : all;
     return hit.sort((a, b) => a.localeCompare(b)).slice(0, 100);
   }
