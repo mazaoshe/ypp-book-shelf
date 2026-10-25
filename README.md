@@ -14,6 +14,16 @@ Browse the book notes in your vault as a cover shelf, and complete covers and me
 - 阅读统计：按天记录你编辑过哪些书，画出年历热力图、每月柱状图、偏好分析（分类雷达 + 作者 / 出版社 Top）
 - 统计对象可以是书籍目录，也可以换成任意目录（比如统计写作天数）
 
+## 截图 / Screenshots
+
+| 书架 Book shelf | 阅读统计 Reading stats |
+|---|---|
+| ![书架](./images/shelf.jpg) | ![阅读统计](./images/stats.jpg) |
+
+| 新建书籍 New book | 设置 Settings |
+|---|---|
+| ![新建书籍](./images/new-book.jpg) | ![设置](./images/settings.jpg) |
+
 ## 安装 / Install
 
 尚未上架社区市场，手动安装：
