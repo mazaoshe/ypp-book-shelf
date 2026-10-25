@@ -22,6 +22,12 @@ Browse the book notes in your vault as a cover shelf, and complete covers and me
 2. 放到 `<你的库>/.obsidian/plugins/ypp-book-shelf/`
 3. 重启 Obsidian，在「第三方插件」里启用 **YPP Book Shelf**
 
+## 界面语言 / Language
+
+界面跟随 Obsidian 的语言设置（默认跟随系统）：中文显示中文，其它语言显示英文。文案表在 `src/i18n/`，中文原文即 key，缺项自动回退中文。
+
+The UI follows Obsidian's language setting (which follows the system by default): Chinese when Obsidian is Chinese, English otherwise.
+
 ## 设置 / Settings
 
 | 项 | 说明 |
@@ -46,6 +52,11 @@ Browse the book notes in your vault as a cover shelf, and complete covers and me
 - 封面以网络地址写入，不下载到本地；渲染时通过 Obsidian 的 `requestUrl` 绕开防盗链，图片会缓存在内存中（按会话）
 - 阅读统计从启用后开始累计，无法回溯历史（同步工具会覆盖文件修改时间）
 - 微信读书 / 豆瓣都是中文数据源，英文书的补全效果有限
+
+## 版本 / Changelog
+
+- **0.2.0** — 界面支持中英双语；目录设置项支持自动补全；读完/在读改按阅读状态字段判断；卡片操作增加「⋯」按钮（移动端可用）
+- **0.1.0** — 首个版本
 
 ## License
 

@@ -1,6 +1,6 @@
 {
   "name": "ypp-book-shelf",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Vault book shelf: browse book notes as cards, fetch metadata and covers from WeRead/Douban",
   "main": "main.js",
   "scripts": {

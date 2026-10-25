@@ -3,6 +3,7 @@ import type BookShelfPlugin from "./main";
 import { fetchDouban, searchWeread } from "./sources";
 import { BookMeta } from "./types";
 import { buildBookNote, DoubanLite } from "./noteTemplate";
+import { t } from "./i18n";
 
 function sanitizeName(s: string): string {
   return s
@@ -62,34 +63,34 @@ export class FetchModal extends Modal {
     const { contentEl } = this;
     contentEl.addClass("bs-modal");
     contentEl.createEl("h3", {
-      text: this.isNew ? "新建书籍" : `补全书籍信息 · ${this.file!.basename}`,
+      text: this.isNew ? t("新建书籍") : t("补全书籍信息 · {name}", { name: this.file!.basename }),
     });
 
     const row = contentEl.createDiv({ cls: "bs-modal-row" });
     const input = row.createEl("input", {
       type: "text",
       cls: "bs-modal-input",
-      placeholder: "书名或关键词",
+      placeholder: t("书名或关键词"),
     });
     input.value = this.keyword;
     input.onkeydown = (e) => {
       if (e.key === "Enter") this.runSearch();
     };
-    this.searchBtn = row.createEl("button", { text: "搜索", cls: "mod-cta" });
+    this.searchBtn = row.createEl("button", { text: t("搜索"), cls: "mod-cta" });
     this.searchBtn.onclick = () => this.runSearch();
 
     const opts = contentEl.createDiv({ cls: "bs-modal-opts" });
     const cb1 = opts.createEl("input", { type: "checkbox" });
     cb1.checked = this.useDouban;
     cb1.onchange = () => (this.useDouban = cb1.checked);
-    const l1 = opts.createEl("label", { text: "同时从豆瓣补 ISBN / 页数 / 出版年" });
+    const l1 = opts.createEl("label", { text: t("同时从豆瓣补 ISBN / 页数 / 出版年") });
     l1.prepend(cb1);
 
     if (!this.isNew) {
       const cb2 = opts.createEl("input", { type: "checkbox" });
       cb2.checked = this.overwrite;
       cb2.onchange = () => (this.overwrite = cb2.checked);
-      const l2 = opts.createEl("label", { text: "覆盖已有字段" });
+      const l2 = opts.createEl("label", { text: t("覆盖已有字段") });
       l2.prepend(cb2);
     }
 
@@ -111,23 +112,23 @@ export class FetchModal extends Modal {
     const kw = (this.contentEl.querySelector(".bs-modal-input") as HTMLInputElement)
       ?.value?.trim();
     if (!kw) {
-      this.setStatus("先输入书名");
+      this.setStatus(t("先输入书名"));
       return;
     }
     this.keyword = kw;
     this.searchBtn.disabled = true;
-    this.setStatus("正在搜索微信读书…");
+    this.setStatus(t("正在搜索微信读书…"));
     this.resultsEl.empty();
     try {
       const list = await searchWeread(kw);
       if (list.length === 0) {
-        this.setStatus("没有搜到结果，换个关键词试试");
+        this.setStatus(t("没有搜到结果，换个关键词试试"));
         return;
       }
-      this.setStatus(`找到 ${list.length} 条，点击右侧「用这条」写入属性`);
+      this.setStatus(t("找到 {n} 条，点击右侧「用这条」写入属性", { n: list.length }));
       for (const item of list) this.renderResult(item);
     } catch (e) {
-      this.setStatus(`搜索失败：${(e as Error).message}`);
+      this.setStatus(t("搜索失败：{msg}", { msg: (e as Error).message }));
     } finally {
       this.searchBtn.disabled = false;
     }
@@ -148,27 +149,27 @@ export class FetchModal extends Modal {
     info.createDiv({ cls: "bs-result-title", text: meta.title ?? "" });
     const sub: string[] = [];
     if (meta.author) sub.push(meta.author);
-    if (meta.translator) sub.push(`译：${meta.translator}`);
+    if (meta.translator) sub.push(t("译：{name}", { name: meta.translator }));
     if (meta.publisher) sub.push(meta.publisher);
-    if (meta.rating) sub.push(`推荐 ${meta.rating}`);
+    if (meta.rating) sub.push(t("推荐 {rating}", { rating: meta.rating }));
     info.createDiv({ cls: "bs-result-sub", text: sub.join(" · ") });
     if (meta.intro) {
       info.createDiv({ cls: "bs-result-intro", text: meta.intro.slice(0, 120) + "…" });
     }
 
     const btn = row.createEl("button", {
-      text: this.isNew ? "用这本新建" : "用这条",
+      text: this.isNew ? t("用这本新建") : t("用这条"),
       cls: "mod-cta",
     });
     btn.onclick = async () => {
       btn.disabled = true;
       try {
         const f = await this.apply(meta);
-        new Notice(`已写入《${meta.title ?? this.keyword}》`);
+        new Notice(t("已写入《{title}》", { title: meta.title ?? this.keyword }));
         this.close();
         this.onDone(f);
       } catch (e) {
-        new Notice(`写入失败：${(e as Error).message}`);
+        new Notice(t("写入失败：{msg}", { msg: (e as Error).message }));
         btn.disabled = false;
       }
     };
@@ -228,7 +229,7 @@ export class FetchModal extends Modal {
   private async createNote(meta: BookMeta, douban: DoubanLite | null): Promise<TFile> {
     const s = this.plugin.settings;
     const root = (s.folder || "Sources/Books").replace(/\/$/, "");
-    const name = sanitizeName(meta.title || this.keyword) || "未命名书籍";
+    const name = sanitizeName(meta.title || this.keyword) || t("未命名书籍");
     const dir = normalizePath(`${root}/${name}`);
 
     const folder = this.app.vault.getAbstractFileByPath(dir);
@@ -262,7 +263,7 @@ export class FetchModal extends Modal {
 
     let douban = null;
     if (this.useDouban || isNew) {
-      this.setStatus("正在查豆瓣的 ISBN / 页数…");
+      this.setStatus(t("正在查豆瓣的 ISBN / 页数…"));
       try {
         douban = await fetchDouban(meta.title ?? this.keyword, meta.author);
       } catch {
@@ -278,18 +279,18 @@ export class FetchModal extends Modal {
       const title = meta.title || this.keyword;
       const existing = this.findExisting(title);
       if (existing) {
-        this.setStatus("库里已有这本书，改为补全现有笔记…");
+        this.setStatus(t("库里已有这本书，改为补全现有笔记…"));
         this.file = existing;
         this.overwrite = true;
         isNew = false;
       } else {
-        this.setStatus("正在创建笔记…");
+        this.setStatus(t("正在创建笔记…"));
         this.file = await this.createNote(meta, douban);
       }
     }
     const file = this.file!;
 
-    this.setStatus("正在写入属性…");
+    this.setStatus(t("正在写入属性…"));
     const overwrite = this.overwrite || isNew;
 
     await this.app.fileManager.processFrontMatter(file, (fm) => {
@@ -327,7 +328,7 @@ export class FetchModal extends Modal {
       }
     });
 
-    this.setStatus("完成");
+    this.setStatus(t("完成"));
     return file;
   }
 }

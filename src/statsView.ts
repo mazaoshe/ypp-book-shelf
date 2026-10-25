@@ -1,5 +1,6 @@
 import { ItemView, WorkspaceLeaf } from "obsidian";
 import type BookShelfPlugin from "./main";
+import { currentLang, t } from "./i18n";
 import {
   ActivityStore,
   booksOn,
@@ -14,7 +15,10 @@ export const VIEW_TYPE_BOOK_STATS = "ypp-book-shelf-stats";
 type Range = "week" | "month" | "year" | "all";
 type ChartMode = "heatmap" | "bar";
 
-const WEEK_LABEL = ["一", "二", "三", "四", "五", "六", "日"];
+const WEEK_LABEL = () =>
+  currentLang() === "en"
+    ? ["M", "T", "W", "T", "F", "S", "S"]
+    : ["一", "二", "三", "四", "五", "六", "日"];
 
 export class BookStatsView extends ItemView {
   private range: Range = "year";
@@ -29,7 +33,7 @@ export class BookStatsView extends ItemView {
     return VIEW_TYPE_BOOK_STATS;
   }
   getDisplayText() {
-    return "阅读统计";
+    return t("阅读统计");
   }
   getIcon() {
     return "bar-chart-3";
@@ -72,10 +76,10 @@ export class BookStatsView extends ItemView {
 
     const tabs = bar.createDiv({ cls: "bs-seg" });
     for (const [value, label] of [
-      ["week", "周"],
-      ["month", "月"],
-      ["year", "年"],
-      ["all", "全部"],
+      ["week", t("周")],
+      ["month", t("月")],
+      ["year", t("年")],
+      ["all", t("全部")],
     ] as [Range, string][]) {
       const b = tabs.createEl("button", { text: label });
       if (this.range === value) b.addClass("is-active");
@@ -92,7 +96,7 @@ export class BookStatsView extends ItemView {
         this.year -= 1;
         this.render();
       };
-      nav.createSpan({ text: `${this.year}年`, cls: "bs-year-label" });
+      nav.createSpan({ text: t("{year}年", { year: this.year }), cls: "bs-year-label" });
       const next = nav.createEl("button", { text: "›" });
       next.onclick = () => {
         this.year += 1;
@@ -122,21 +126,21 @@ export class BookStatsView extends ItemView {
   private renderCards(body: HTMLElement) {
     const s = this.store;
     const days = new Set(Object.keys(s.days).filter((d) => this.dayHasBooks(d)));
-    let label = "今年";
+    let label = t("今年");
     let filtered = [...days].filter((d) => d.startsWith(String(this.year)));
 
     if (this.range === "week") {
-      label = "本周";
+      label = t("本周");
       const start = this.weekStart(new Date());
       filtered = [...days].filter((d) => new Date(d) >= start);
     } else if (this.range === "month") {
-      label = "本月";
+      label = t("本月");
       const ym = `${new Date().getFullYear()}-${String(
         new Date().getMonth() + 1
       ).padStart(2, "0")}`;
       filtered = [...days].filter((d) => d.startsWith(ym));
     } else if (this.range === "all") {
-      label = "累计";
+      label = t("累计");
       filtered = [...days];
     }
 
@@ -152,18 +156,23 @@ export class BookStatsView extends ItemView {
     }
 
     const booksMode = this.plugin.trackingBooks;
-    const unit = booksMode ? "书" : "笔记";
+    const unit = booksMode ? t("书") : t("笔记");
     const cards = body.createDiv({ cls: "bs-cardrow" });
     const items: [string, string, string, string][] = [
-      ["📅", String(filtered.length), `${label}${booksMode ? "阅读" : "动手"}天数`, "有编辑记录的天数"],
-      ["🔥", String(currentStreak(days)), "当前连续", "连续有动作的天数"],
-      ["📚", String(touched.size), `${label}动过的${unit}`, "编辑过的笔记"],
-      ["🏆", String(longestStreak(days)), "最长连续", "历史最长连续天数"],
+      [
+        "📅",
+        String(filtered.length),
+        booksMode ? t("{label}阅读天数", { label }) : t("{label}动手天数", { label }),
+        t("有编辑记录的天数"),
+      ],
+      ["🔥", String(currentStreak(days)), t("当前连续"), t("连续有动作的天数")],
+      ["📚", String(touched.size), t("{label}动过的{unit}", { label, unit }), t("编辑过的笔记")],
+      ["🏆", String(longestStreak(days)), t("最长连续"), t("历史最长连续天数")],
     ];
     if (booksMode) {
       items.push(
-        ["✅", String(finished) + " / " + String(books.length), "读完 / 藏书", "按阅读状态字段判断"],
-        ["📖", String(reading), "在读", "按阅读状态字段判断"]
+        ["✅", String(finished) + " / " + String(books.length), t("读完 / 藏书"), t("按阅读状态字段判断")],
+        ["📖", String(reading), t("在读"), t("按阅读状态字段判断")]
       );
     }
     for (const [icon, value, name, desc] of items) {
@@ -179,7 +188,7 @@ export class BookStatsView extends ItemView {
     if (days.size === 0) {
       body.createDiv({
         cls: "bs-hint",
-        text: `记录从今天开始累计：编辑 \`${this.plugin.trackFolder}/\` 下的任意笔记后，这里就会出现格子。文件修改时间被同步任务覆盖过，历史无法回溯。`,
+        text: t("记录从今天开始累计：编辑 {dir}/ 下的任意笔记后，这里就会出现格子。文件修改时间被同步任务覆盖过，历史无法回溯。", { dir: this.plugin.trackFolder }),
       });
     }
   }
@@ -207,7 +216,7 @@ export class BookStatsView extends ItemView {
 
   private renderHeatmap(host: HTMLElement) {
     const wrap = host.createDiv({ cls: "bs-chart" });
-    wrap.createDiv({ cls: "bs-chart-title", text: "每日阅读（编辑过的书）" });
+    wrap.createDiv({ cls: "bs-chart-title", text: t("每日阅读（编辑过的书）") });
 
     const year = this.year;
     const start = new Date(year, 0, 1);
@@ -237,7 +246,7 @@ export class BookStatsView extends ItemView {
       );
       const week = Math.floor((startPad + offset) / 7);
       if (week >= weeks) continue;
-      text(svg, left + week * (cell + gap), 11, `${m + 1}月`, {
+      text(svg, left + week * (cell + gap), 11, t("{m}月", { m: m + 1 }), {
         fill: "var(--text-faint)",
         "font-size": "9",
       });
@@ -274,18 +283,21 @@ export class BookStatsView extends ItemView {
       if (n > 0) {
         totalDaysRead++;
         for (const p of this.pathsOn(key)) totalBooks.add(p);
-        (rect as any).title = `${key} · ${n} 本\n${this.pathsOn(key)
+        (rect as any).title = `${key} · ${t("{n} 本", { n })}\n${this.pathsOn(key)
           .map((p) => p.split("/").pop()?.replace(/\.md$/, ""))
           .join("\n")}`;
-        const t = document.createElementNS("http://www.w3.org/2000/svg", "title");
-        t.textContent = (rect as any).title;
-        rect.appendChild(t);
+        const titleEl = document.createElementNS(
+          "http://www.w3.org/2000/svg",
+          "title"
+        );
+        titleEl.textContent = (rect as any).title;
+        rect.appendChild(titleEl);
       }
     }
 
     // 图例
     const legendY = top + 7 * (cell + gap) + 10;
-    text(svg, left, legendY + 9, "少", {
+    text(svg, left, legendY + 9, t("少"), {
       fill: "var(--text-faint)",
       "font-size": "10",
     });
@@ -298,14 +310,14 @@ export class BookStatsView extends ItemView {
       r.setAttribute("rx", "2");
       r.setAttribute("class", `bs-heat l${l}`);
     }
-    text(svg, left + 18 + 5 * (cell + 2) + 6, legendY + 9, "多", {
+    text(svg, left + 18 + 5 * (cell + 2) + 6, legendY + 9, t("多"), {
       fill: "var(--text-faint)",
       "font-size": "10",
     });
 
     wrap.createDiv({
       cls: "bs-chart-foot",
-      text: `${year} 年共阅读 ${totalDaysRead} 天，涉及 ${totalBooks.size} 本书`,
+      text: t("{year} 年共阅读 {days} 天，涉及 {books} 本书", { year, days: totalDaysRead, books: totalBooks.size }),
     });
   }
 
@@ -317,7 +329,7 @@ export class BookStatsView extends ItemView {
     const daysInMonth = new Date(this.year, month + 1, 0).getDate();
     wrap.createDiv({
       cls: "bs-chart-title",
-      text: `${this.year} 年 ${month + 1} 月每日阅读`,
+      text: t("{year} 年 {m} 月每日阅读", { year: this.year, m: month + 1 }),
     });
     const counts = dailyCounts(
       this.store,
@@ -352,21 +364,21 @@ export class BookStatsView extends ItemView {
         "font-size": "11",
       });
       if (n > 0) {
-        const t = document.createElementNS(
+        const titleEl = document.createElementNS(
           "http://www.w3.org/2000/svg",
           "title"
         );
-        t.textContent = `${key} · ${n} 本\n${this.pathsOn(key)
+        titleEl.textContent = `${key} · ${t("{n} 本", { n })}\n${this.pathsOn(key)
           .map((p) => p.split("/").pop()?.replace(/\.md$/, ""))
           .join("\n")}`;
-        g.appendChild(t);
+        g.appendChild(titleEl);
       }
     }
   }
 
   private renderWeekStrip(host: HTMLElement) {
     const wrap = host.createDiv({ cls: "bs-chart" });
-    wrap.createDiv({ cls: "bs-chart-title", text: "本周阅读" });
+    wrap.createDiv({ cls: "bs-chart-title", text: t("本周阅读") });
     const start = this.weekStart(new Date());
     const counts = dailyCounts(
       this.store,
@@ -395,14 +407,17 @@ export class BookStatsView extends ItemView {
         fill: level >= 3 ? "#fff" : "var(--text-muted)",
         "font-size": "13",
       });
-      text(g, x + cell / 2 - 5, cell + 26, WEEK_LABEL[i], {
+      text(g, x + cell / 2 - 5, cell + 26, WEEK_LABEL()[i], {
         fill: "var(--text-faint)",
         "font-size": "11",
       });
       if (n > 0) {
-        const t = document.createElementNS("http://www.w3.org/2000/svg", "title");
-        t.textContent = `${key} · ${n} 本`;
-        g.appendChild(t);
+        const titleEl = document.createElementNS(
+          "http://www.w3.org/2000/svg",
+          "title"
+        );
+        titleEl.textContent = `${key} · ${t("{n} 本", { n })}`;
+        g.appendChild(titleEl);
       }
       i++;
     }
@@ -411,7 +426,7 @@ export class BookStatsView extends ItemView {
   private renderMonthBars(host: HTMLElement) {
     const wrap = host.createDiv({ cls: "bs-chart" });
     const year = this.range === "month" ? new Date().getFullYear() : this.year;
-    wrap.createDiv({ cls: "bs-chart-title", text: "每月阅读天数" });
+    wrap.createDiv({ cls: "bs-chart-title", text: t("每月阅读天数") });
 
     const perMonth: number[] = [];
     const store = this.store;
@@ -441,7 +456,7 @@ export class BookStatsView extends ItemView {
       line.setAttribute("y1", String(y));
       line.setAttribute("y2", String(y));
       line.setAttribute("class", "bs-axis-line");
-      text(svg, 2, y + 4, `${Math.round(max * q)}天`, {
+      text(svg, 2, y + 4, t("{n}天", { n: Math.round(max * q) }), {
         fill: "var(--text-faint)",
         "font-size": "10",
       });
@@ -458,10 +473,13 @@ export class BookStatsView extends ItemView {
       r.setAttribute("height", String(Math.max(h, 1)));
       r.setAttribute("rx", "3");
       r.setAttribute("class", n > 0 ? "bs-bar has" : "bs-bar");
-      const t = document.createElementNS("http://www.w3.org/2000/svg", "title");
-      t.textContent = `${m + 1} 月 · ${n} 天`;
-      r.appendChild(t);
-      text(svg, x + barW / 2 - 10, height - 8, `${m + 1}月`, {
+      const titleEl = document.createElementNS(
+        "http://www.w3.org/2000/svg",
+        "title"
+      );
+      titleEl.textContent = t("{m} 月 · {n} 天", { m: m + 1, n });
+      r.appendChild(titleEl);
+      text(svg, x + barW / 2 - 10, height - 8, t("{m}月", { m: m + 1 }), {
         fill: "var(--text-faint)",
         "font-size": "10",
       });
@@ -470,7 +488,7 @@ export class BookStatsView extends ItemView {
 
   private renderYearBars(host: HTMLElement) {
     const wrap = host.createDiv({ cls: "bs-chart" });
-    wrap.createDiv({ cls: "bs-chart-title", text: "每年阅读天数" });
+    wrap.createDiv({ cls: "bs-chart-title", text: t("每年阅读天数") });
     const years = new Map<number, number>();
     for (const day of Object.keys(this.store.days)) {
       if (this.pathsOn(day).length === 0) continue;
@@ -478,7 +496,7 @@ export class BookStatsView extends ItemView {
       years.set(y, (years.get(y) ?? 0) + 1);
     }
     if (years.size === 0) {
-      wrap.createDiv({ cls: "bs-empty", text: "还没有记录，从今天开始积累" });
+      wrap.createDiv({ cls: "bs-empty", text: t("还没有记录，从今天开始积累") });
       return;
     }
     const entries = [...years.entries()].sort((a, b) => a[0] - b[0]);
@@ -498,14 +516,17 @@ export class BookStatsView extends ItemView {
       r.setAttribute("height", String(Math.max(h, 1)));
       r.setAttribute("rx", "3");
       r.setAttribute("class", "bs-bar has");
-      const t = document.createElementNS("http://www.w3.org/2000/svg", "title");
-      t.textContent = `${y} · ${n} 天`;
-      r.appendChild(t);
+      const titleEl = document.createElementNS(
+        "http://www.w3.org/2000/svg",
+        "title"
+      );
+      titleEl.textContent = t("{y} · {n} 天", { y, n });
+      r.appendChild(titleEl);
       text(svg, padL + i * slot + 4, height - 24, String(y), {
         fill: "var(--text-faint)",
         "font-size": "11",
       });
-      text(svg, padL + i * slot + 8, height - 8, `${n} 天`, {
+      text(svg, padL + i * slot + 8, height - 8, t("{n} 天", { n }), {
         fill: "var(--text-muted)",
         "font-size": "11",
       });
@@ -539,7 +560,7 @@ export class BookStatsView extends ItemView {
     const row = body.createDiv({ cls: "bs-pref-row" });
 
     const radarCard = row.createDiv({ cls: "bs-pref-card" });
-    radarCard.createDiv({ cls: "bs-chart-title", text: "偏好分析 · 分类" });
+    radarCard.createDiv({ cls: "bs-chart-title", text: t("偏好分析 · 分类") });
     const genres = [...genreCount.entries()]
       .sort((a, b) => b[1] - a[1])
       .slice(0, 6);
@@ -547,21 +568,21 @@ export class BookStatsView extends ItemView {
       this.renderRadar(radarCard, genres);
     } else {
       const top = genres.length
-        ? `主要是「${genres[0][0]}」`
-        : "书还太少，先在 frontmatter 里标 genre";
+        ? t("主要是「{g}」", { g: genres[0][0] })
+        : t("书还太少，先在 frontmatter 里标 genre");
       radarCard.createDiv({ cls: "bs-pref-empty", text: top });
     }
 
     const pubCard = row.createDiv({ cls: "bs-pref-card" });
-    pubCard.createDiv({ cls: "bs-chart-title", text: "偏好出版方" });
+    pubCard.createDiv({ cls: "bs-chart-title", text: t("偏好出版方") });
     const pubs = [...pubCount.entries()].sort((a, b) => b[1] - a[1]).slice(0, 6);
     if (pubs.length === 0) {
-      pubCard.createDiv({ cls: "bs-pref-empty", text: "还没有 publisher 字段" });
+      pubCard.createDiv({ cls: "bs-pref-empty", text: t("还没有 publisher 字段") });
     }
     for (const [name, n] of pubs) {
       const line = pubCard.createDiv({ cls: "bs-pref-line" });
       line.createSpan({ text: name });
-      line.createSpan({ cls: "bs-pref-num", text: `${n} 本` });
+      line.createSpan({ cls: "bs-pref-num", text: t("{n} 本", { n }) });
     }
   }
 

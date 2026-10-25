@@ -1,0 +1,175 @@
+/** 英文文案表：key 就是中文原文，缺项自动回退中文 */
+export const EN: Record<string, string> = {
+  // 书架
+  "书架": "Book Shelf",
+  "我的书架": "My book shelf",
+  "搜索书名或作者": "Search title or author",
+  "{st}（{n}）": "{st} ({n})",
+  "按最近修改": "Recently modified",
+  "按加入时间": "Recently added",
+  "按书名": "Title",
+  "按作者": "Author",
+  "按评分": "Rating",
+  "按阅读状态": "Reading status",
+  "↓ 倒序": "↓ Desc",
+  "↑ 正序": "↑ Asc",
+  "切换升/降序": "Toggle asc/desc",
+  "+ 新建书籍": "+ New book",
+  "统计": "Stats",
+  "刷新": "Refresh",
+  "共 {n} 本": "{n} books",
+  "{a} / {b} 本": "{a} / {b} books",
+  "没有匹配的书": "No matching books",
+  "在 {folder} 里没找到书籍笔记（检查设置里的目录和 type 字段）":
+    "No book notes found in {folder} (check the folder and type field in settings)",
+  "补全": "Fill in",
+  "缺：{list}": "Missing: {list}",
+  "更多操作": "More actions",
+  "封面": "cover",
+  "作者": "author",
+  "简介": "description",
+  "打开笔记": "Open note",
+  "重新拉取补全信息": "Fetch metadata again",
+  "以此篇为主（同目录只显示这篇）": "Use this note as primary (hide duplicates)",
+  "删除书籍…": "Delete book…",
+
+  // 删除
+  "删除《{name}》": "Delete “{name}”",
+  "会移到系统废纸篓（Obsidian 的删除设置决定是否永久删除），可以从废纸篓找回。":
+    "It will be moved to the system trash (whether it is permanent depends on your Obsidian delete settings) and can be restored from there.",
+  " 连同目录 {dir}/ 一起删除（含封面图片和同目录其他副本）":
+    " Also delete the folder {dir}/ (cover image and other copies inside)",
+  "注意：这个目录里还有其他笔记，勾选会一起删掉。":
+    "Note: this folder contains other notes. Checking the box deletes them too.",
+  "取消": "Cancel",
+  "删除": "Delete",
+  "已删除《{name}》": "Deleted “{name}”",
+  "删除失败：{msg}": "Delete failed: {msg}",
+
+  // 补全
+  "新建书籍": "New book",
+  "补全书籍信息 · {name}": "Complete book info · {name}",
+  "书名或关键词": "Title or keyword",
+  "搜索": "Search",
+  "同时从豆瓣补 ISBN / 页数 / 出版年": "Also fetch ISBN / pages / year from Douban",
+  "覆盖已有字段": "Overwrite existing fields",
+  "先输入书名": "Enter a title first",
+  "正在搜索微信读书…": "Searching WeRead…",
+  "没有搜到结果，换个关键词试试": "Nothing found, try another keyword",
+  "找到 {n} 条，点击右侧「用这条」写入属性":
+    "Found {n} results. Click “Use this” to write the fields",
+  "搜索失败：{msg}": "Search failed: {msg}",
+  "译：{name}": "Translator: {name}",
+  "推荐 {rating}": "Rating {rating}",
+  "用这本新建": "Create with this",
+  "用这条": "Use this",
+  "已写入《{title}》": "Written to “{title}”",
+  "写入失败：{msg}": "Write failed: {msg}",
+  "未命名书籍": "Untitled book",
+  "正在查豆瓣的 ISBN / 页数…": "Looking up ISBN / pages on Douban…",
+  "库里已有这本书，改为补全现有笔记…": "This book already exists, completing the existing note…",
+  "正在创建笔记": "Creating note…",
+  "正在创建笔记…": "Creating note…",
+  "正在写入属性…": "Writing fields…",
+  "完成": "Done",
+
+  // 设置
+  "书籍目录": "Book folder",
+  "只扫描这个目录下的笔记（库内相对路径）":
+    "Only notes inside this folder are scanned (vault-relative path)",
+  "类型字段 / 值": "Type field / values",
+  "frontmatter 里该字段等于任一值的笔记才算一本书。多个值用逗号分隔（如 books-summary, book）；留空则目录下所有笔记都算":
+    "Only notes whose field equals one of the values count as a book. Separate multiple values with commas (e.g. books-summary, book). Leave empty to use every note in the folder.",
+  "留空 = 不过滤；多个用逗号分隔": "Empty = no filter; separate multiple values with commas",
+  "阅读状态字段": "Reading status field",
+  "书架的状态标签、筛选，以及统计里的「读完 / 在读」都按这个字段判断。识别 想读 / 在读 / 读完 / 弃读（也认 读过、已读、阅读中等别名）。新建书籍默认写「想读」":
+    "Used for status labels, filtering and the finished / reading counts in Stats. Recognized values: 想读 (want), 在读 (reading), 读完 (finished), 弃读 (dropped). New books get 想读 by default.",
+  "封面字段": "Cover field",
+  "默认 cover，值可以是远程 URL 或库内路径":
+    "Defaults to cover; the value can be a remote URL or a vault path",
+  "作者字段": "Author field",
+  "默认 author": "Defaults to author",
+  "封面文件名": "Local cover filename",
+  "同目录下这个文件优先作为封面，不依赖 frontmatter 的 cover":
+    "If this file exists next to the note it wins over the cover field",
+  "把简介算作缺项": "Treat missing description as incomplete",
+  "关闭时只有缺封面或缺作者才显示「补全」。微信读书笔记一般不带简介，建议关闭":
+    "When off, the “Fill in” button only shows for a missing cover or author. WeRead notes usually have no description, so keep this off.",
+  "新建书籍的默认属性": "Default frontmatter for new books",
+  "每行一个 key: value，新建书籍时写进 frontmatter。不需要就留空":
+    "One key: value per line, written into new notes. Leave empty if not needed",
+  "新建书籍的类型值": "Type value for new books",
+  "新建时写进 type 字段的值，例如 book。留空则不写这个字段（配合上面的「类型字段 / 值」做筛选）":
+    "Value written to the type field on creation, e.g. book. Leave empty to skip it (works together with the Type field setting above).",
+  "用豆瓣补 ISBN / 页数 / 出版年": "Fetch ISBN / pages / year from Douban",
+  "微信读书没有这几个字段。豆瓣网页接口需要 Referer，失败不影响封面和简介":
+    "WeRead does not provide these. The Douban endpoint requires a Referer; failures do not affect the cover or description.",
+  "统计目录": "Stats folder",
+  "留空 = 跟上面「书籍目录」一致（统计读书）。想统计写作就把这里填成 Content，热力图会变成“今天写了东西没有”":
+    "Empty = same as the book folder (reading stats). Point it at your writing folder to track writing instead.",
+  "留空 = 书架目录": "Empty = book folder",
+  "统计的类型字段 / 值": "Stats type field / values",
+  "只想统计特定类型的笔记时填，例如字段 type、值 books-summary, book。留空 = 目录下所有笔记都算":
+    "Only needed when you want to limit stats to certain types, e.g. field type, values books-summary, book. Empty = all notes in the folder.",
+  "留空 = 不过滤": "Empty = no filter",
+  "批量同步不计入": "Ignore batch sync writes",
+  "2 秒内 5 个以上文件同时变更，判定为同步任务写入，不记为阅读":
+    "5+ files changing within 2 seconds are treated as a sync job and not counted",
+
+  // 数据源错误
+  "微信读书搜索失败（HTTP {status}）": "WeRead search failed (HTTP {status})",
+  "微信读书返回内容无法解析": "WeRead returned unreadable content",
+  "人": " people",
+
+  // 统计
+  "阅读统计": "Reading stats",
+  "打开书架": "Open book shelf",
+  "打开阅读统计": "Open reading stats",
+  "周": "Week",
+  "月": "Month",
+  "年": "Year",
+  "全部": "All",
+  "{year}年": "{year}",
+  "今年": "This year",
+  "本周": "This week",
+  "本月": "This month",
+  "累计": "All time",
+  "书": "book",
+  "笔记": "note",
+  "{label}阅读天数": "{label} days reading",
+  "{label}动手天数": "{label} days active",
+  "有编辑记录的天数": "Days with edit records",
+  "当前连续": "Current streak",
+  "连续有动作的天数": "Consecutive active days",
+  "{label}动过的{unit}": "{label} {unit}s touched",
+  "编辑过的笔记": "Notes you edited",
+  "最长连续": "Longest streak",
+  "历史最长连续天数": "Longest run of active days",
+  "读完 / 藏书": "Finished / Total",
+  "按阅读状态字段判断": "Based on the reading status field",
+  "在读": "Reading",
+  "记录从今天开始累计：编辑 {dir}/ 下的任意笔记后，这里就会出现格子。文件修改时间被同步任务覆盖过，历史无法回溯。":
+    "Records start from today: edit any note under {dir}/ and a cell appears here. File modification times are overwritten by sync jobs, so history cannot be recovered.",
+  "每日阅读（编辑过的书）": "Daily activity (books edited)",
+  "{m}月": "{m}",
+  "{n} 本": "{n} books",
+  "少": "Less",
+  "多": "More",
+  "{year} 年共阅读 {days} 天，涉及 {books} 本书":
+    "{days} days in {year}, across {books} books",
+  "{year} 年 {m} 月每日阅读": "Daily activity in {year}-{m}",
+  "本周阅读": "This week",
+  "每月阅读天数": "Days per month",
+  "{n}天": "{n}d",
+  "{m} 月 · {n} 天": "{m} · {n} days",
+  "每年阅读天数": "Days per year",
+  "还没有记录，从今天开始积累": "No records yet — start today",
+  "{y} · {n} 天": "{y} · {n} days",
+  "{n} 天": "{n} days",
+  "偏好分析 · 分类": "Preferences · genres",
+  "主要是「{g}」": "Mostly “{g}”",
+  "书还太少，先在 frontmatter 里标 genre":
+    "Not enough books yet — add a genre field in the frontmatter",
+  "偏好出版方": "Top publishers",
+  "还没有 publisher 字段": "No publisher field yet",
+};

@@ -9,6 +9,7 @@ import { BookStatsView, VIEW_TYPE_BOOK_STATS } from "./statsView";
 import { ActivityTracker, dayKey, emptyActivity } from "./activity";
 import { collectBooks } from "./library";
 import { BookItem } from "./types";
+import { t } from "./i18n";
 
 export default class BookShelfPlugin extends Plugin {
   settings: BookShelfSettings;
@@ -27,18 +28,18 @@ export default class BookShelfPlugin extends Plugin {
       (leaf: WorkspaceLeaf) => new BookStatsView(leaf, this)
     );
 
-    this.addRibbonIcon("library-big", "我的书架", () => this.activateView());
-    this.addRibbonIcon("bar-chart-3", "阅读统计", () => this.activateStatsView());
+    this.addRibbonIcon("library-big", t("我的书架"), () => this.activateView());
+    this.addRibbonIcon("bar-chart-3", t("阅读统计"), () => this.activateStatsView());
 
     this.addCommand({
       id: "open-book-shelf",
-      name: "打开书架",
+      name: t("打开书架"),
       callback: () => this.activateView(),
     });
 
     this.addCommand({
       id: "open-reading-stats",
-      name: "打开阅读统计",
+      name: t("打开阅读统计"),
       callback: () => this.activateStatsView(),
     });
 

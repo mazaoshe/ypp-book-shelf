@@ -1,5 +1,6 @@
 import { requestUrl } from "obsidian";
 import { BookMeta, DoubanMeta } from "./types";
+import { t } from "./i18n";
 
 const WEREAD_SEARCH = "https://weread.qq.com/web/search/global";
 const DOUBAN_SUGGEST = "https://book.douban.com/j/subject_suggest";
@@ -19,13 +20,13 @@ export async function searchWeread(keyword: string): Promise<BookMeta[]> {
   const url = `${WEREAD_SEARCH}?keyword=${encodeURIComponent(keyword)}`;
   const res = await requestUrl({ url, method: "GET", throw: false });
   if (res.status !== 200) {
-    throw new Error(`微信读书搜索失败（HTTP ${res.status}）`);
+    throw new Error(t("微信读书搜索失败（HTTP {status}）", { status: res.status }));
   }
   let data: any;
   try {
     data = res.json;
   } catch (e) {
-    throw new Error("微信读书返回内容无法解析");
+    throw new Error(t("微信读书返回内容无法解析"));
   }
   const books: any[] = data?.books ?? [];
   const out: BookMeta[] = [];
@@ -43,7 +44,7 @@ export async function searchWeread(keyword: string): Promise<BookMeta[]> {
       rating:
         typeof info.newRating === "number"
           ? `${(info.newRating / 10).toFixed(1)}%${
-              info.newRatingCount ? `（${info.newRatingCount}人）` : ""
+              info.newRatingCount ? `${info.newRatingCount}${t("人")}` : ""
             }`
           : "",
       sourceUrl: info.deepLink ?? "",

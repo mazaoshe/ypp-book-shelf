@@ -1,6 +1,7 @@
 import { App, ItemView, Menu, TFile, WorkspaceLeaf, normalizePath, requestUrl } from "obsidian";
 import type BookShelfPlugin from "./main";
 import { FetchModal } from "./fetchModal";
+import { listSep, t } from "./i18n";
 import { DeleteBookModal } from "./deleteModal";
 import { BookItem } from "./types";
 import { collectBooks } from "./library";
@@ -25,7 +26,7 @@ export class BookShelfView extends ItemView {
   }
 
   getDisplayText() {
-    return "书架";
+    return t("书架");
   }
 
   getIcon() {
@@ -105,7 +106,7 @@ export class BookShelfView extends ItemView {
     const searchWrap = bar.createDiv({ cls: "bs-search" });
     const input = searchWrap.createEl("input", {
       type: "text",
-      placeholder: "搜索书名或作者",
+      placeholder: t("搜索书名或作者"),
     });
     input.value = this.searchText;
     input.oninput = () => {
@@ -121,7 +122,7 @@ export class BookShelfView extends ItemView {
     const select = bar.createEl("select", { cls: "dropdown" });
     for (const st of ["全部", ...statuses]) {
       const opt = select.createEl("option", {
-        text: `${st}（${statusCount(st)}）`,
+        text: t("{st}（{n}）", { st: st === "全部" ? t("全部") : st, n: statusCount(st) }),
         value: st,
       });
       if (st === this.statusFilter) opt.selected = true;
@@ -133,12 +134,12 @@ export class BookShelfView extends ItemView {
 
     const sortSelect = bar.createEl("select", { cls: "dropdown" });
     const sortOptions: [string, string][] = [
-      ["mtime", "按最近修改"],
-      ["ctime", "按加入时间"],
-      ["title", "按书名"],
-      ["author", "按作者"],
-      ["rating", "按评分"],
-      ["status", "按阅读状态"],
+      ["mtime", t("按最近修改")],
+      ["ctime", t("按加入时间")],
+      ["title", t("按书名")],
+      ["author", t("按作者")],
+      ["rating", t("按评分")],
+      ["status", t("按阅读状态")],
     ];
     if (!sortOptions.some(([v]) => v === this.sortMode)) this.sortMode = "mtime";
     for (const [value, label] of sortOptions) {
@@ -151,17 +152,17 @@ export class BookShelfView extends ItemView {
     };
 
     const dirBtn = bar.createEl("button", {
-      text: this.sortDesc ? "↓ 倒序" : "↑ 正序",
+      text: this.sortDesc ? t("↓ 倒序") : t("↑ 正序"),
       cls: "bs-btn",
     });
-    dirBtn.title = "切换升/降序";
+    dirBtn.title = t("切换升/降序");
     dirBtn.onclick = () => {
       this.sortDesc = !this.sortDesc;
-      dirBtn.setText(this.sortDesc ? "↓ 倒序" : "↑ 正序");
+      dirBtn.setText(this.sortDesc ? t("↓ 倒序") : t("↑ 正序"));
       this.renderGrid();
     };
 
-    const newBtn = bar.createEl("button", { text: "+ 新建书籍", cls: "bs-btn" });
+    const newBtn = bar.createEl("button", { text: t("+ 新建书籍"), cls: "bs-btn" });
     newBtn.onclick = () =>
       new FetchModal(this.app, this.plugin, null, (f) => {
         this.render();
@@ -169,12 +170,12 @@ export class BookShelfView extends ItemView {
       }).open();
 
     const statsBtn = bar.createEl("button", {
-      text: "统计",
+      text: t("统计"),
       cls: "bs-btn",
     });
     statsBtn.onclick = () => void this.plugin.activateStatsView();
 
-    const refresh = bar.createEl("button", { text: "刷新", cls: "bs-btn" });
+    const refresh = bar.createEl("button", { text: t("刷新"), cls: "bs-btn" });
     refresh.onclick = () => this.render();
 
     this.countEl = bar.createSpan({ cls: "bs-count" });
@@ -245,8 +246,8 @@ export class BookShelfView extends ItemView {
     if (this.countEl) {
       this.countEl.setText(
         list.length === this.books.length
-          ? `共 ${this.books.length} 本`
-          : `${list.length} / ${this.books.length} 本`
+          ? t("共 {n} 本", { n: this.books.length })
+          : t("{a} / {b} 本", { a: list.length, b: this.books.length })
       );
     }
 
@@ -254,8 +255,8 @@ export class BookShelfView extends ItemView {
       grid.createDiv({
         cls: "bs-empty",
         text: this.books.length
-          ? "没有匹配的书"
-          : `在 ${this.s.folder} 里没找到书籍笔记（检查设置里的目录和 type 字段）`,
+          ? t("没有匹配的书")
+          : t("在 {folder} 里没找到书籍笔记（检查设置里的目录和 type 字段）", { folder: this.s.folder }),
       });
       return;
     }
@@ -287,10 +288,10 @@ export class BookShelfView extends ItemView {
       if (missing.length > 0) {
         const actions = body.createDiv({ cls: "bs-actions" });
         const fetchBtn = actions.createEl("button", {
-          text: "补全",
+          text: t("补全"),
           cls: "bs-btn bs-btn-sm",
         });
-        fetchBtn.title = `缺：${missing.join("、")}`;
+        fetchBtn.title = t("缺：{list}", { list: missing.join(listSep()) });
         fetchBtn.onclick = (e) => {
           e.stopPropagation();
           new FetchModal(this.app, this.plugin, book.file, () => this.render()).open();
@@ -300,7 +301,7 @@ export class BookShelfView extends ItemView {
 
       const moreBtn = card.createEl("button", {
         cls: "bs-more",
-        attr: { "aria-label": "更多操作" },
+        attr: { "aria-label": t("更多操作") },
         text: "⋯",
       });
       moreBtn.onclick = (e) => {
@@ -335,11 +336,11 @@ export class BookShelfView extends ItemView {
   /** 缺哪些关键字段，用来决定是否还显示「补全」 */
   private missingFields(book: BookItem): string[] {
     const miss: string[] = [];
-    if (!this.coverSrc(book.cover, book.file)) miss.push("封面");
-    if (!book.author) miss.push("作者");
+    if (!this.coverSrc(book.cover, book.file)) miss.push(t("封面"));
+    if (!book.author) miss.push(t("作者"));
     const isWeread = String(book.frontmatter.doc_type ?? "").startsWith("weread");
     if (this.s.requireDesc && !isWeread) {
-      if (!String(book.frontmatter["desc"] ?? "").trim()) miss.push("简介");
+      if (!String(book.frontmatter["desc"] ?? "").trim()) miss.push(t("简介"));
     }
     return miss;
   }
@@ -386,13 +387,13 @@ export class BookShelfView extends ItemView {
     const menu = new Menu();
     menu.addItem((i) =>
       i
-        .setTitle("打开笔记")
+        .setTitle(t("打开笔记"))
         .setIcon("file-text")
         .onClick(() => this.app.workspace.getLeaf(false).openFile(book.file))
     );
     menu.addItem((i) =>
       i
-        .setTitle("重新拉取补全信息")
+        .setTitle(t("重新拉取补全信息"))
         .setIcon("refresh-cw")
         .onClick(() =>
           new FetchModal(this.app, this.plugin, book.file, () => {
@@ -403,14 +404,14 @@ export class BookShelfView extends ItemView {
     );
     menu.addItem((i) =>
       i
-        .setTitle("以此篇为主（同目录只显示这篇）")
+        .setTitle(t("以此篇为主（同目录只显示这篇）"))
         .setIcon("pin")
         .onClick(() => void this.setPrimary(book))
     );
     menu.addSeparator();
     menu.addItem((i) =>
       i
-        .setTitle("删除书籍…")
+        .setTitle(t("删除书籍…"))
         .setIcon("trash-2")
         .onClick(() =>
           new DeleteBookModal(this.app, book.file, () => this.render()).open()
