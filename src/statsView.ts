@@ -144,16 +144,11 @@ export class BookStatsView extends ItemView {
     for (const d of filtered) for (const p of this.pathsOn(d)) touched.add(p);
 
     const books = this.plugin.collectBooks();
-    let noteCount = 0;
-    let readSeconds = 0;
     let finished = 0;
     let reading = 0;
     for (const b of books) {
-      const fm = b.frontmatter;
-      noteCount += num(fm["noteCount"]);
-      readSeconds += parseDuration(fm["readingTime"]);
-      if (fm["finishedDate"] || String(fm["progress"] ?? "") === "100%") finished++;
-      if (b.status === "在读") reading++;
+      if (b.status === "读完") finished++;
+      else if (b.status === "在读") reading++;
     }
 
     const booksMode = this.plugin.trackingBooks;
@@ -167,10 +162,8 @@ export class BookStatsView extends ItemView {
     ];
     if (booksMode) {
       items.push(
-        ["📝", String(noteCount), "笔记条数", "所有书籍笔记合计"],
-        ["⏱", fmtDuration(readSeconds), "微信读书时长", "书籍里记录的总时长"],
-        ["✅", String(finished) + " / " + String(books.length), "读完 / 藏书", ""],
-        ["📖", String(reading), "在读", ""]
+        ["✅", String(finished) + " / " + String(books.length), "读完 / 藏书", "按阅读状态字段判断"],
+        ["📖", String(reading), "在读", "按阅读状态字段判断"]
       );
     }
     for (const [icon, value, name, desc] of items) {
@@ -652,24 +645,3 @@ function text(
   parent.appendChild(t);
 }
 
-function num(v: unknown): number {
-  const n = parseFloat(String(v ?? "").replace(/[^\d.]/g, ""));
-  return isNaN(n) ? 0 : n;
-}
-
-/** "1小时35分钟" -> 秒 */
-function parseDuration(v: unknown): number {
-  const s = String(v ?? "");
-  if (!s) return 0;
-  const h = s.match(/(\d+)\s*小时/);
-  const m = s.match(/(\d+)\s*分钟/);
-  return (h ? Number(h[1]) * 3600 : 0) + (m ? Number(m[1]) * 60 : 0);
-}
-
-function fmtDuration(sec: number): string {
-  if (!sec) return "0";
-  const h = Math.floor(sec / 3600);
-  const m = Math.round((sec % 3600) / 60);
-  if (h > 0) return `${h}时${m}分`;
-  return `${m}分`;
-}

@@ -29,6 +29,10 @@ export interface TemplateOpts {
   extraLines?: string[];
   /** 写入 type 字段的值，留空则不写 */
   typeValue?: string;
+  /** 阅读状态字段名，如 readingStatus；留空则不写 */
+  statusField?: string;
+  /** 新建时的初始状态值，如 想读 */
+  statusValue?: string;
 }
 
 /** 生成新书籍笔记：bookinfo 卡片 + 简介 callout + 标准属性 */
@@ -39,7 +43,7 @@ export function buildBookNote(
   opts: TemplateOpts = {}
 ): string {
   const cover = meta.cover || douban?.cover || "";
-  const coverRef = opts.hasLocalCover ? "cover.jpg" : cover;
+  const coverRef = opts.hasLocalCover || !cover ? "cover.jpg" : cover;
   const author = meta.author ? [meta.author] : [];
   const isbn = meta.isbn || douban?.isbn || "";
   const year = douban?.yearPublished
@@ -65,8 +69,9 @@ export function buildBookNote(
     ["myRating", ""],
     ["readDate", ""],
     ["genre", ""],
-    ["readingStatus", "想读"],
   ];
+  const statusField = (opts.statusField || "").trim();
+  if (statusField) rest.push([statusField, opts.statusValue || "想读"]);
 
   const extra = (opts.extraLines ?? []).filter(
     (l) => l && ![...rows, ...rest].some(([k]) => l.startsWith(`${k}:`))

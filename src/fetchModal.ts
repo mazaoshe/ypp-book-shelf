@@ -250,6 +250,8 @@ export class FetchModal extends Modal {
       hasLocalCover: false,
       extraLines,
       typeValue: s.newNoteType,
+      statusField: s.statusField,
+      statusValue: "想读",
     });
     return this.app.vault.create(path, text);
   }

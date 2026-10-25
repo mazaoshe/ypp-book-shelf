@@ -1,6 +1,7 @@
 import { App, PluginSettingTab, Setting } from "obsidian";
 import type BookShelfPlugin from "./main";
 import { ActivityStore } from "./activity";
+import { FolderSuggest } from "./folderSuggest";
 
 export interface BookShelfSettings {
   folder: string;
@@ -62,15 +63,18 @@ export class BookShelfSettingTab extends PluginSettingTab {
     new Setting(containerEl)
       .setName("书籍目录")
       .setDesc("只扫描这个目录下的笔记（库内相对路径）")
-      .addText((t) =>
-        t
-          .setPlaceholder("Books")
+      .addText((t) => {
+        t.setPlaceholder("Books")
           .setValue(this.plugin.settings.folder)
           .onChange(async (v) => {
             this.plugin.settings.folder = v.trim();
             await this.plugin.saveSettings();
-          })
-      );
+          });
+        new FolderSuggest(this.app, t.inputEl, async (v) => {
+          this.plugin.settings.folder = v;
+          await this.plugin.saveSettings();
+        });
+      });
 
     new Setting(containerEl)
       .setName("类型字段 / 值")
@@ -98,7 +102,9 @@ export class BookShelfSettingTab extends PluginSettingTab {
 
     new Setting(containerEl)
       .setName("阅读状态字段")
-      .setDesc("用于按「在读 / 读完」筛选，默认 readingStatus")
+      .setDesc(
+        "书架的状态标签、筛选，以及统计里的「读完 / 在读数」都按这个字段判断。识别 想读 / 在读 / 读完 / 弃读（也认 读过、已读、阅读中等别名）。新建书籍默认写「想读」"
+      )
       .addText((t) =>
         t
           .setValue(this.plugin.settings.statusField)
@@ -203,16 +209,20 @@ export class BookShelfSettingTab extends PluginSettingTab {
       .setDesc(
         "留空 = 跟上面「书籍目录」一致（统计读书）。想统计写作就把这里填成 Content，热力图会变成“今天写了东西没有”"
       )
-      .addText((t) =>
-        t
-          .setPlaceholder("留空 = 书架目录")
+      .addText((t) => {
+        t.setPlaceholder("留空 = 书架目录")
           .setValue(this.plugin.settings.trackFolder)
           .onChange(async (v) => {
             this.plugin.settings.trackFolder = v.trim();
             await this.plugin.saveSettings();
             this.plugin.refreshStats();
-          })
-      );
+          });
+        new FolderSuggest(this.app, t.inputEl, async (v) => {
+          this.plugin.settings.trackFolder = v;
+          await this.plugin.saveSettings();
+          this.plugin.refreshStats();
+        });
+      });
 
     new Setting(containerEl)
       .setName("统计的类型字段 / 值")
