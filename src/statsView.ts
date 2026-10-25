@@ -1,6 +1,7 @@
 import { ItemView, WorkspaceLeaf } from "obsidian";
 import type BookShelfPlugin from "./main";
 import { currentLang, t } from "./i18n";
+import { asStr } from "./fm";
 import {
   ActivityStore,
   booksOn,
@@ -283,15 +284,10 @@ export class BookStatsView extends ItemView {
       if (n > 0) {
         totalDaysRead++;
         for (const p of this.pathsOn(key)) totalBooks.add(p);
-        (rect as any).title = `${key} · ${t("{n} 本", { n })}\n${this.pathsOn(key)
+        const tooltip = `${key} · ${t("{n} 本", { n })}\n${this.pathsOn(key)
           .map((p) => p.split("/").pop()?.replace(/\.md$/, ""))
           .join("\n")}`;
-        const titleEl = document.createElementNS(
-          "http://www.w3.org/2000/svg",
-          "title"
-        );
-        titleEl.textContent = (rect as any).title;
-        rect.appendChild(titleEl);
+        rect.createSvg("title").textContent = tooltip;
       }
     }
 
@@ -323,7 +319,6 @@ export class BookStatsView extends ItemView {
 
   private renderMonthGrid(host: HTMLElement) {
     const wrap = host.createDiv({ cls: "bs-chart" });
-    const start = new Date(this.year, 0, 1);
     const month = this.range === "month" ? new Date().getMonth() : 0;
     const first = new Date(this.year, month, 1);
     const daysInMonth = new Date(this.year, month + 1, 0).getDate();
@@ -364,14 +359,9 @@ export class BookStatsView extends ItemView {
         "font-size": "11",
       });
       if (n > 0) {
-        const titleEl = document.createElementNS(
-          "http://www.w3.org/2000/svg",
-          "title"
-        );
-        titleEl.textContent = `${key} · ${t("{n} 本", { n })}\n${this.pathsOn(key)
+        g.createSvg("title").textContent = `${key} · ${t("{n} 本", { n })}\n${this.pathsOn(key)
           .map((p) => p.split("/").pop()?.replace(/\.md$/, ""))
           .join("\n")}`;
-        g.appendChild(titleEl);
       }
     }
   }
@@ -412,12 +402,7 @@ export class BookStatsView extends ItemView {
         "font-size": "11",
       });
       if (n > 0) {
-        const titleEl = document.createElementNS(
-          "http://www.w3.org/2000/svg",
-          "title"
-        );
-        titleEl.textContent = `${key} · ${t("{n} 本", { n })}`;
-        g.appendChild(titleEl);
+        g.createSvg("title").textContent = `${key} · ${t("{n} 本", { n })}`;
       }
       i++;
     }
@@ -429,7 +414,6 @@ export class BookStatsView extends ItemView {
     wrap.createDiv({ cls: "bs-chart-title", text: t("每月阅读天数") });
 
     const perMonth: number[] = [];
-    const store = this.store;
     for (let m = 0; m < 12; m++) {
       const days = new Date(year, m + 1, 0).getDate();
       let n = 0;
@@ -473,12 +457,7 @@ export class BookStatsView extends ItemView {
       r.setAttribute("height", String(Math.max(h, 1)));
       r.setAttribute("rx", "3");
       r.setAttribute("class", n > 0 ? "bs-bar has" : "bs-bar");
-      const titleEl = document.createElementNS(
-        "http://www.w3.org/2000/svg",
-        "title"
-      );
-      titleEl.textContent = t("{m} 月 · {n} 天", { m: m + 1, n });
-      r.appendChild(titleEl);
+      r.createSvg("title").textContent = t("{m} 月 · {n} 天", { m: m + 1, n });
       text(svg, x + barW / 2 - 10, height - 8, t("{m}月", { m: m + 1 }), {
         fill: "var(--text-faint)",
         "font-size": "10",
@@ -516,12 +495,7 @@ export class BookStatsView extends ItemView {
       r.setAttribute("height", String(Math.max(h, 1)));
       r.setAttribute("rx", "3");
       r.setAttribute("class", "bs-bar has");
-      const titleEl = document.createElementNS(
-        "http://www.w3.org/2000/svg",
-        "title"
-      );
-      titleEl.textContent = t("{y} · {n} 天", { y, n });
-      r.appendChild(titleEl);
+      r.createSvg("title").textContent = t("{y} · {n} 天", { y, n });
       text(svg, padL + i * slot + 4, height - 24, String(y), {
         fill: "var(--text-faint)",
         "font-size": "11",
@@ -543,8 +517,7 @@ export class BookStatsView extends ItemView {
     const pubCount = new Map<string, number>();
     for (const b of books) {
       const fm = b.frontmatter;
-      const raw = fm["category"] ?? fm["genre"];
-      const joined = Array.isArray(raw) ? raw.join(",") : String(raw ?? "");
+      const joined = asStr(fm["category"] ?? fm["genre"]);
       for (const g of joined.split(/[,，、;；]+/)) {
         // 微信读书的 category 形如「个人成长-励志成长」，取大类
         const k = g.split("-")[0].trim();
@@ -552,7 +525,9 @@ export class BookStatsView extends ItemView {
       }
       const pub = fm["publisher"];
       if (pub) {
-        const k = String(Array.isArray(pub) ? pub.join("/") : pub).trim();
+        const k = Array.isArray(pub)
+          ? pub.map((v) => asStr(v)).filter(Boolean).join("/")
+          : asStr(pub);
         if (k) pubCount.set(k, (pubCount.get(k) ?? 0) + 1);
       }
     }
@@ -648,7 +623,7 @@ function svgEl(
     el.setAttribute("viewBox", `0 0 ${width ?? 0} ${height ?? 0}`);
   }
   parent.appendChild(el);
-  return el as SVGElement;
+  return el;
 }
 
 function text(
@@ -658,11 +633,10 @@ function text(
   content: string,
   attrs: Record<string, string>
 ) {
-  const t = document.createElementNS("http://www.w3.org/2000/svg", "text");
+  const t = parent.createSvg("text");
   t.setAttribute("x", String(x));
   t.setAttribute("y", String(y));
   for (const [k, v] of Object.entries(attrs)) t.setAttribute(k, v);
   t.textContent = content;
-  parent.appendChild(t);
 }
 

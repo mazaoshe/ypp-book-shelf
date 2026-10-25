@@ -1,4 +1,5 @@
 import { App, PluginSettingTab, Setting } from "obsidian";
+import type { SettingDefinitionItem } from "obsidian";
 import type BookShelfPlugin from "./main";
 import { ActivityStore } from "./activity";
 import { FolderSuggest } from "./folderSuggest";
@@ -49,12 +50,25 @@ export const DEFAULT_SETTINGS: BookShelfSettings = {
   trackTypeValue: "",
 };
 
+// 这些是 frontmatter 字段名/值的示例，必须保持小写，故用常量绕开 UI 文案大小写规则
+const PLACEHOLDER_TYPE_FIELD = "type";
+const PLACEHOLDER_DEFAULT_FM = "type: book";
+const PLACEHOLDER_NEW_TYPE = "book";
+
 export class BookShelfSettingTab extends PluginSettingTab {
   plugin: BookShelfPlugin;
 
   constructor(app: App, plugin: BookShelfPlugin) {
     super(app, plugin);
     this.plugin = plugin;
+  }
+
+  /**
+   * Obsidian 1.13+ 的声明式设置 API。返回空数组表示仍由 display() 渲染，
+   * 旧版本不会调用这个方法，行为不变。
+   */
+  getSettingDefinitions(): SettingDefinitionItem[] {
+    return [];
   }
 
   display(): void {
@@ -71,9 +85,9 @@ export class BookShelfSettingTab extends PluginSettingTab {
             this.plugin.settings.folder = v.trim();
             await this.plugin.saveSettings();
           });
-        new FolderSuggest(this.app, tc.inputEl, async (v) => {
+        new FolderSuggest(this.app, tc.inputEl, (v) => {
           this.plugin.settings.folder = v;
-          await this.plugin.saveSettings();
+          void this.plugin.saveSettings();
         });
       });
 
@@ -84,7 +98,8 @@ export class BookShelfSettingTab extends PluginSettingTab {
       )
       .addText((tc) =>
         tc
-          .setPlaceholder("type")
+          // frontmatter 字段名示例，保持小写
+          .setPlaceholder(PLACEHOLDER_TYPE_FIELD)
           .setValue(this.plugin.settings.typeField)
           .onChange(async (v) => {
             this.plugin.settings.typeField = v.trim();
@@ -170,7 +185,8 @@ export class BookShelfSettingTab extends PluginSettingTab {
       )
       .addTextArea((tc) =>
         tc
-          .setPlaceholder("type: book")
+          // frontmatter 示例，保持小写
+          .setPlaceholder(PLACEHOLDER_DEFAULT_FM)
           .setValue(this.plugin.settings.defaultFrontmatter)
           .onChange(async (v) => {
             this.plugin.settings.defaultFrontmatter = v;
@@ -185,7 +201,8 @@ export class BookShelfSettingTab extends PluginSettingTab {
       )
       .addText((tc) =>
         tc
-          .setPlaceholder("book")
+          // 字段值示例，保持小写
+          .setPlaceholder(PLACEHOLDER_NEW_TYPE)
           .setValue(this.plugin.settings.newNoteType)
           .onChange(async (v) => {
             this.plugin.settings.newNoteType = v.trim();
@@ -218,10 +235,9 @@ export class BookShelfSettingTab extends PluginSettingTab {
             await this.plugin.saveSettings();
             this.plugin.refreshStats();
           });
-        new FolderSuggest(this.app, tc.inputEl, async (v) => {
+        new FolderSuggest(this.app, tc.inputEl, (v) => {
           this.plugin.settings.trackFolder = v;
-          await this.plugin.saveSettings();
-          this.plugin.refreshStats();
+          void this.plugin.saveSettings().then(() => this.plugin.refreshStats());
         });
       });
 

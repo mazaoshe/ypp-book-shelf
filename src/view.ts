@@ -1,10 +1,11 @@
-import { App, ItemView, Menu, TFile, WorkspaceLeaf, normalizePath, requestUrl } from "obsidian";
+import { ItemView, Menu, TFile, WorkspaceLeaf, normalizePath, requestUrl } from "obsidian";
 import type BookShelfPlugin from "./main";
 import { FetchModal } from "./fetchModal";
 import { listSep, t } from "./i18n";
 import { DeleteBookModal } from "./deleteModal";
 import { BookItem } from "./types";
 import { collectBooks } from "./library";
+import { asStr } from "./fm";
 
 export const VIEW_TYPE_BOOK_SHELF = "book-shelf-view";
 
@@ -205,7 +206,7 @@ export class BookShelfView extends ItemView {
     const statusOrder = (s: string) =>
       s === "在读" ? 0 : s === "想读" ? 1 : s === "读完" ? 2 : 3;
     const ratingNum = (b: BookItem) => {
-      const raw = String(b.frontmatter["rating"] ?? "");
+      const raw = asStr(b.frontmatter["rating"]);
       const stars = (raw.match(/[⭐★]/g) ?? []).length;
       if (stars > 0) return stars;
       const n = parseFloat(raw.replace(/[^\d.]/g, ""));
@@ -281,8 +282,8 @@ export class BookShelfView extends ItemView {
 
       const tags = body.createDiv({ cls: "bs-tags" });
       if (book.status) tags.createSpan({ cls: "bs-tag", text: book.status });
-      const rating = book.frontmatter["rating"];
-      if (rating) tags.createSpan({ cls: "bs-tag bs-tag-rating", text: String(rating) });
+      const rating = asStr(book.frontmatter["rating"]);
+      if (rating) tags.createSpan({ cls: "bs-tag bs-tag-rating", text: rating });
 
       const missing = this.missingFields(book);
       if (missing.length > 0) {
@@ -325,10 +326,13 @@ export class BookShelfView extends ItemView {
       .filter((f) => f.parent === parent);
     for (const f of siblings) {
       const isTarget = f.path === book.file.path;
-      await this.app.fileManager.processFrontMatter(f, (fm) => {
-        if (isTarget) fm.shelfPrimary = true;
-        else if (fm.shelfPrimary !== undefined) delete fm.shelfPrimary;
-      });
+      await this.app.fileManager.processFrontMatter(
+        f,
+        (fm: Record<string, unknown>) => {
+          if (isTarget) fm.shelfPrimary = true;
+          else if (fm.shelfPrimary !== undefined) delete fm.shelfPrimary;
+        }
+      );
     }
     this.render();
   }
@@ -338,9 +342,9 @@ export class BookShelfView extends ItemView {
     const miss: string[] = [];
     if (!this.coverSrc(book.cover, book.file)) miss.push(t("封面"));
     if (!book.author) miss.push(t("作者"));
-    const isWeread = String(book.frontmatter.doc_type ?? "").startsWith("weread");
+    const isWeread = asStr(book.frontmatter["doc_type"]).startsWith("weread");
     if (this.s.requireDesc && !isWeread) {
-      if (!String(book.frontmatter["desc"] ?? "").trim()) miss.push(t("简介"));
+      if (!asStr(book.frontmatter["desc"])) miss.push(t("简介"));
     }
     return miss;
   }

@@ -50,8 +50,8 @@ export class DeleteBookModal extends Modal {
       del.disabled = true;
       try {
         const target = this.withFolder ? this.file.parent : this.file;
-        if (target instanceof TFolder) await this.app.vault.trash(target, true);
-        else await this.app.vault.trash(this.file, true);
+        if (target instanceof TFolder) await this.app.fileManager.trashFile(target);
+        else await this.app.fileManager.trashFile(this.file);
         new Notice(t("已删除《{name}》", { name: this.file.basename }));
         this.close();
         this.onDeleted();

@@ -1,4 +1,4 @@
-import { Notice, Plugin, WorkspaceLeaf } from "obsidian";
+import { Notice, Plugin, TFile, WorkspaceLeaf } from "obsidian";
 import {
   BookShelfSettings,
   DEFAULT_SETTINGS,
@@ -9,6 +9,7 @@ import { BookStatsView, VIEW_TYPE_BOOK_STATS } from "./statsView";
 import { ActivityTracker, dayKey, emptyActivity } from "./activity";
 import { collectBooks } from "./library";
 import { BookItem } from "./types";
+import { asStr, getFm } from "./fm";
 import { t } from "./i18n";
 
 export default class BookShelfPlugin extends Plugin {
@@ -101,11 +102,10 @@ export default class BookShelfPlugin extends Plugin {
       .filter(Boolean);
     if (wanted.length === 0) return true;
     const file = this.app.vault.getAbstractFileByPath(path);
-    if (!file || !("basename" in file)) return false;
-    const fm =
-      this.app.metadataCache.getFileCache(file as any)?.frontmatter ?? ({} as any);
-    const value = String(
-      fm[this.settings.trackTypeField || this.settings.typeField || "type"] ?? ""
+    if (!(file instanceof TFile)) return false;
+    const fm = getFm(this.app, file);
+    const value = asStr(
+      fm[this.settings.trackTypeField || this.settings.typeField || "type"]
     );
     return wanted.includes(value);
   }
@@ -127,7 +127,7 @@ export default class BookShelfPlugin extends Plugin {
       leaf = workspace.getLeaf(true);
       await leaf.setViewState({ type: VIEW_TYPE_BOOK_STATS, active: true });
     }
-    if (leaf) workspace.revealLeaf(leaf);
+    if (leaf) void workspace.revealLeaf(leaf);
   }
 
   async activateView() {
@@ -140,11 +140,14 @@ export default class BookShelfPlugin extends Plugin {
       leaf = workspace.getLeaf(true);
       await leaf.setViewState({ type: VIEW_TYPE_BOOK_SHELF, active: true });
     }
-    if (leaf) workspace.revealLeaf(leaf);
+    if (leaf) void workspace.revealLeaf(leaf);
   }
 
   async loadSettings() {
-    this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
+    const data = (await this.loadData()) as unknown;
+    const stored =
+      data && typeof data === "object" ? (data as Partial<BookShelfSettings>) : {};
+    this.settings = Object.assign({}, DEFAULT_SETTINGS, stored);
     // 旧版默认按 type=books-summary 过滤，导致大量书漏掉；作废
     if (this.settings.typeValue === "books-summary") {
       this.settings.typeValue = "";

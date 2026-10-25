@@ -47,7 +47,9 @@ export class ActivityTracker {
       if (!this.shouldTrack(file.path)) return;
       this.pending.set(file.path, Date.now());
       if (this.flushTimer === null) {
-        this.flushTimer = window.setTimeout(() => this.flush(), 2500);
+        this.flushTimer = window.setTimeout(() => {
+          void this.flush();
+        }, 2500);
       }
     });
     this.plugin.registerEvent(ref);

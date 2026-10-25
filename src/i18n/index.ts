@@ -1,22 +1,19 @@
+import { getLanguage } from "obsidian";
 import { EN } from "./en";
 
 export type Lang = "zh" | "en";
 
-let cached: Lang | null = null;
-
 /** 跟随 Obsidian 的语言设置（默认跟随系统），拿不到就看系统语言 */
 export function currentLang(): Lang {
-  if (cached) return cached;
   let raw = "";
   try {
-    raw = (window.localStorage.getItem("language") || "").trim();
+    raw = (getLanguage() || "").trim();
   } catch {
     raw = "";
   }
   if (!raw) raw = navigator.language || "zh";
   raw = raw.toLowerCase();
-  cached = raw.startsWith("zh") ? "zh" : "en";
-  return cached;
+  return raw.startsWith("zh") ? "zh" : "en";
 }
 
 /**

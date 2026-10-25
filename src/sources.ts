@@ -6,6 +6,31 @@ const WEREAD_SEARCH = "https://weread.qq.com/web/search/global";
 const DOUBAN_SUGGEST = "https://book.douban.com/j/subject_suggest";
 const DOUBAN_REFERER = "https://book.douban.com/";
 
+/** 微信读书搜索接口里用到的字段（只声明用到的，避免 any 传播） */
+interface WereadBookInfo {
+  bookId?: string;
+  title?: string;
+  author?: string;
+  translator?: string;
+  publisher?: string;
+  intro?: string;
+  cover?: string;
+  newRating?: number;
+  newRatingCount?: number;
+  deepLink?: string;
+}
+
+interface WereadResponse {
+  books?: { bookInfo?: WereadBookInfo }[];
+}
+
+/** 豆瓣 subject_suggest 返回的列表项 */
+interface DoubanSuggestItem {
+  type?: string;
+  url?: string;
+  author_name?: string;
+}
+
 /** 微信读书封面小图地址 → 大图地址 */
 function upgradeWereadCover(url: string): string {
   if (!url) return url;
@@ -22,13 +47,13 @@ export async function searchWeread(keyword: string): Promise<BookMeta[]> {
   if (res.status !== 200) {
     throw new Error(t("微信读书搜索失败（HTTP {status}）", { status: res.status }));
   }
-  let data: any;
+  let data: WereadResponse;
   try {
-    data = res.json;
-  } catch (e) {
+    data = res.json as WereadResponse;
+  } catch {
     throw new Error(t("微信读书返回内容无法解析"));
   }
-  const books: any[] = data?.books ?? [];
+  const books = data?.books ?? [];
   const out: BookMeta[] = [];
   for (const item of books) {
     const info = item?.bookInfo;
@@ -84,15 +109,14 @@ export async function fetchDouban(
   });
   if (sres.status !== 200) return null;
 
-  let list: any[] = [];
+  let list: DoubanSuggestItem[] = [];
   try {
-    list = JSON.parse(sres.text);
-  } catch (e) {
+    const parsed = JSON.parse(sres.text) as unknown;
+    list = Array.isArray(parsed) ? (parsed as DoubanSuggestItem[]) : [];
+  } catch {
     return null;
   }
-  const books = (Array.isArray(list) ? list : []).filter(
-    (x) => x && x.type === "b" && x.url
-  );
+  const books = list.filter((x) => x && x.type === "b" && x.url);
   if (books.length === 0) return null;
 
   // 优先挑作者能对上的那条，都没有就用第一条
@@ -121,7 +145,7 @@ export async function fetchDouban(
   const meta: DoubanMeta = {
     subjectId,
     title: pick(html, /property="v:itemreviewed">([^<]+)</),
-    isbn: pick(html, /ISBN:?<\/span>\s*([0-9Xx\-]+)/),
+    isbn: pick(html, /ISBN:?<\/span>\s*([0-9Xx-]+)/),
     pages: pagesRaw ? Number(pagesRaw) : undefined,
     yearPublished: pick(html, /出版年:?<\/span>\s*([^<]+)/),
     publisher: pick(html, /出版社:?<\/span>\s*([^<]+)/),

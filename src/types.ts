@@ -1,3 +1,6 @@
+import type { TFile } from "obsidian";
+import type { Fm } from "./fm";
+
 export interface BookMeta {
   title?: string;
   author?: string;
@@ -25,8 +28,8 @@ export interface DoubanMeta {
 }
 
 export interface BookItem {
-  file: any;
-  frontmatter: Record<string, any>;
+  file: TFile;
+  frontmatter: Fm;
   title: string;
   author: string;
   cover: string;

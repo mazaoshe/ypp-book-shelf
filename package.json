@@ -1,20 +1,27 @@
 {
   "name": "ypp-book-shelf",
-  "version": "0.2.0",
+  "version": "0.2.1",
+  "minAppVersion": "1.8.7",
   "description": "Vault book shelf: browse book notes as cards, fetch metadata and covers from WeRead/Douban",
   "main": "main.js",
   "scripts": {
     "dev": "node esbuild.config.mjs",
     "build": "tsc -noEmit -skipLibCheck && node esbuild.config.mjs production",
-    "deploy": "node esbuild.config.mjs production && node deploy.mjs"
+    "deploy": "node esbuild.config.mjs production && node deploy.mjs",
+    "lint": "eslint ."
   },
-  "keywords": ["obsidian", "books", "shelf"],
+  "keywords": [
+    "obsidian",
+    "books",
+    "shelf"
+  ],
   "author": "kesilent",
   "license": "MIT",
   "devDependencies": {
     "@types/node": "^20.11.0",
-    "builtin-modules": "^3.3.0",
     "esbuild": "^0.21.5",
+    "eslint": "^9.39.5",
+    "eslint-plugin-obsidianmd": "^0.4.2",
     "obsidian": "^1.5.7",
     "tslib": "^2.6.2",
     "typescript": "^5.4.5"

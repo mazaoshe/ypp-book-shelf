@@ -1,7 +1,7 @@
 import { BookMeta } from "./types";
 
 function yamlStr(s: string): string {
-  if (!/[:#"\[\]{}&*!|>'"%@`]|^- |^\d+:/.test(s)) return s;
+  if (!/[:#"{}&*!|>'"%@`[\]]|^- |^\d+:/.test(s)) return s;
   return JSON.stringify(s);
 }
 
@@ -18,7 +18,7 @@ export interface DoubanLite {
   yearPublished?: string;
   publisher?: string;
   subjectId?: string;
-  rating?: number;
+  rating?: string;
   cover?: string;
 }
 

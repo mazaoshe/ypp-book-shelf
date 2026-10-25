@@ -1,5 +1,6 @@
-import { App, normalizePath } from "obsidian";
+import { App } from "obsidian";
 import { BookItem } from "./types";
+import { asStr, getFm } from "./fm";
 import type { BookShelfSettings } from "./settings";
 
 export const STATUS_ALIASES: Record<string, string> = {
@@ -17,7 +18,8 @@ export const STATUS_ALIASES: Record<string, string> = {
 };
 
 export function normalizeStatus(raw: unknown): string {
-  const s = String(raw ?? "").trim();
+  // 数组状态沿用旧的 join(",") 语义，避免筛选时的字符串比较变化
+  const s = Array.isArray(raw) ? raw.map((v) => asStr(v)).filter(Boolean).join(",") : asStr(raw);
   if (!s) return "";
   return STATUS_ALIASES[s] ?? s;
 }
@@ -60,28 +62,29 @@ export function collectBooks(app: App, s: BookShelfSettings) {
 
   const items: BookItem[] = [];
   for (const file of files) {
-    const fm =
-      app.metadataCache.getFileCache(file)?.frontmatter ?? ({} as any);
+    const fm = getFm(app, file);
     if (s.typeValue) {
       const wanted = s.typeValue
         .split(/[,，、\s]+/)
         .map((v) => v.trim())
         .filter(Boolean);
       if (wanted.length > 0) {
-        const v = String(fm[s.typeField || "type"] ?? "");
+        const v = asStr(fm[s.typeField || "type"]);
         if (!wanted.includes(v)) continue;
       }
     }
-    if (String(fm.type ?? "") === "moc") continue;
+    if (asStr(fm["type"]) === "moc") continue;
     const rawCover = fm[s.coverField || "cover"];
     let cover = "";
     if (typeof rawCover === "string" && rawCover.trim()) cover = rawCover.trim();
-    else if (Array.isArray(rawCover) && rawCover.length) cover = String(rawCover[0]);
+    else if (Array.isArray(rawCover) && rawCover.length) cover = asStr(rawCover[0]);
 
-    let author = fm[s.authorField || "author"];
-    if (Array.isArray(author)) author = author.join(" / ");
-    if (author && String(author).startsWith("[[")) {
-      author = String(author).replace(/\[\[|\]\]/g, "");
+    const rawAuthor = fm[s.authorField || "author"];
+    let author = Array.isArray(rawAuthor)
+      ? rawAuthor.map((v) => asStr(v)).filter(Boolean).join(" / ")
+      : asStr(rawAuthor);
+    if (author.startsWith("[[")) {
+      author = author.replace(/\[\[|\]\]/g, "");
     }
 
     const status = normalizeStatus(fm[s.statusField || "readingStatus"]);
@@ -90,9 +93,9 @@ export function collectBooks(app: App, s: BookShelfSettings) {
       file,
       frontmatter: fm,
       title: file.basename,
-      author: author ? String(author) : "",
-      cover: cover ? String(cover) : "",
-      status: status ? String(status) : "",
+      author,
+      cover,
+      status,
     });
   }
   return dedupe(items, folder);

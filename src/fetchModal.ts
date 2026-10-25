@@ -3,6 +3,8 @@ import type BookShelfPlugin from "./main";
 import { fetchDouban, searchWeread } from "./sources";
 import { BookMeta } from "./types";
 import { buildBookNote, DoubanLite } from "./noteTemplate";
+import type { DoubanMeta } from "./types";
+import { asStr, getFm } from "./fm";
 import { t } from "./i18n";
 
 function sanitizeName(s: string): string {
@@ -11,18 +13,6 @@ function sanitizeName(s: string): string {
     .replace(/\s+/g, " ")
     .trim()
     .slice(0, 80);
-}
-
-function yamlStr(s: string): string {
-  if (!/[:#"\[\]{}&*!|>'"%@`]|^- |^\d+:/.test(s)) return s;
-  return JSON.stringify(s);
-}
-
-function quoteLines(s: string): string {
-  return s
-    .split("\n")
-    .map((l) => (l.trim() ? `> ${l}` : ">"))
-    .join("\n");
 }
 
 export class FetchModal extends Modal {
@@ -63,7 +53,7 @@ export class FetchModal extends Modal {
     const { contentEl } = this;
     contentEl.addClass("bs-modal");
     contentEl.createEl("h3", {
-      text: this.isNew ? t("新建书籍") : t("补全书籍信息 · {name}", { name: this.file!.basename }),
+      text: this.isNew ? t("新建书籍") : t("补全书籍信息 · {name}", { name: this.file.basename }),
     });
 
     const row = contentEl.createDiv({ cls: "bs-modal-row" });
@@ -74,10 +64,10 @@ export class FetchModal extends Modal {
     });
     input.value = this.keyword;
     input.onkeydown = (e) => {
-      if (e.key === "Enter") this.runSearch();
+      if (e.key === "Enter") void this.runSearch();
     };
     this.searchBtn = row.createEl("button", { text: t("搜索"), cls: "mod-cta" });
-    this.searchBtn.onclick = () => this.runSearch();
+    this.searchBtn.onclick = () => void this.runSearch();
 
     const opts = contentEl.createDiv({ cls: "bs-modal-opts" });
     const cb1 = opts.createEl("input", { type: "checkbox" });
@@ -97,7 +87,7 @@ export class FetchModal extends Modal {
     this.statusEl = contentEl.createDiv({ cls: "bs-modal-status" });
     this.resultsEl = contentEl.createDiv({ cls: "bs-results" });
 
-    if (this.keyword) this.runSearch();
+    if (this.keyword) void this.runSearch();
   }
 
   onClose() {
@@ -109,7 +99,8 @@ export class FetchModal extends Modal {
   }
 
   async runSearch() {
-    const kw = (this.contentEl.querySelector(".bs-modal-input") as HTMLInputElement)
+    const kw = this.contentEl
+      .querySelector<HTMLInputElement>(".bs-modal-input")
       ?.value?.trim();
     if (!kw) {
       this.setStatus(t("先输入书名"));
@@ -197,7 +188,7 @@ export class FetchModal extends Modal {
   private static norm(s: string): string {
     return s
       .toLowerCase()
-      .replace(/[《》（）()【】\[\]\s:：,，.。、\-_—!！?？'"“”]/g, "");
+      .replace(/[《》（）()【】[\]\s:：,，.。、\-_—!！?？'"“”]/g, "");
   }
 
   /** 库里已有同名书（或在书目录下已有同名子目录）时，返回那篇笔记 */
@@ -208,8 +199,8 @@ export class FetchModal extends Modal {
     const cands: { file: TFile; score: number }[] = [];
     for (const f of this.app.vault.getMarkdownFiles()) {
       const base = FetchModal.norm(f.basename);
-      const fm = this.app.metadataCache.getFileCache(f)?.frontmatter ?? ({} as any);
-      const rawTitle = String(fm.title ?? "")
+      const fm = getFm(this.app, f);
+      const rawTitle = asStr(fm["title"])
         .replace(/^!?\[\[/, "")
         .replace(/\]\]$/, "")
         .split("|")[0];
@@ -261,7 +252,7 @@ export class FetchModal extends Modal {
     const s = this.plugin.settings;
     let isNew = this.isNew;
 
-    let douban = null;
+    let douban: DoubanMeta | null = null;
     if (this.useDouban || isNew) {
       this.setStatus(t("正在查豆瓣的 ISBN / 页数…"));
       try {
@@ -288,13 +279,13 @@ export class FetchModal extends Modal {
         this.file = await this.createNote(meta, douban);
       }
     }
-    const file = this.file!;
+    const file = this.file;
 
     this.setStatus(t("正在写入属性…"));
     const overwrite = this.overwrite || isNew;
 
-    await this.app.fileManager.processFrontMatter(file, (fm) => {
-      const setIfEmpty = (key: string, value: any) => {
+    await this.app.fileManager.processFrontMatter(file, (fm: Record<string, unknown>) => {
+      const setIfEmpty = (key: string, value: unknown) => {
         if (value === undefined || value === null || value === "") return;
         const cur = fm[key];
         const empty =
