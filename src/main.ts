@@ -30,7 +30,7 @@ export default class BookShelfPlugin extends Plugin {
     );
 
     this.addRibbonIcon("library-big", t("我的书架"), () => this.activateView());
-    this.addRibbonIcon("bar-chart-3", t("阅读统计"), () => this.activateStatsView());
+    // 阅读统计是书架的内嵌小功能，入口只在书架视图的工具栏里，不占左侧 Ribbon
 
     this.addCommand({
       id: "open-book-shelf",
