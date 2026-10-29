@@ -1,6 +1,14 @@
 import { App, Modal, Notice, TFile, TFolder, normalizePath } from "obsidian";
 import type BookShelfPlugin from "./main";
-import { fetchDouban, fetchDoubanById, searchDouban, searchWeread } from "./sources";
+import {
+  fetchDouban,
+  fetchDoubanById,
+  fetchDoubanByIsbn,
+  looksLikeIsbn,
+  searchDouban,
+  searchDoubanByIsbn,
+  searchWeread,
+} from "./sources";
 import { coverFileNameFor, downloadImage } from "./sources";
 import { BookMeta } from "./types";
 import { buildBookNote, DoubanLite } from "./noteTemplate";
@@ -138,8 +146,16 @@ export class FetchModal extends Modal {
     }
     const s = this.plugin.settings;
     const tasks: { src: SourceKind; p: Promise<BookMeta[]> }[] = [];
-    if (s.enableWeread) tasks.push({ src: "weread", p: withTimeout(searchWeread(kw), 8000) });
-    if (s.enableDouban) tasks.push({ src: "douban", p: withTimeout(searchDouban(kw), 8000) });
+    // 关键词是 ISBN 时豆瓣走精准查询：suggest 接口不认 ISBN，按书名搜会直接空。
+    // 微信读书的搜索只认书名/作者，ISBN 查询返回 0 条，这里直接跳过省一次请求
+    const byIsbn = looksLikeIsbn(kw);
+    if (s.enableWeread && !byIsbn) tasks.push({ src: "weread", p: withTimeout(searchWeread(kw), 8000) });
+    if (s.enableDouban) {
+      tasks.push({
+        src: "douban",
+        p: withTimeout(byIsbn ? searchDoubanByIsbn(kw) : searchDouban(kw), 8000),
+      });
+    }
     if (tasks.length === 0) {
       this.setStatus(t("两个搜索源都关掉了，去设置里打开一个"));
       return;
@@ -472,14 +488,23 @@ export class FetchModal extends Modal {
     const s = this.plugin.settings;
     let isNew = this.isNew;
 
+    // 笔记里已有 ISBN 时优先按 ISBN 精准查，比按书名模糊搜更能锁住版本
+    const noteIsbn =
+      !isNew && this.file
+        ? FetchModal.isbnKey(asStr(getFm(this.app, this.file)["isbn"]))
+        : "";
+    const lookupIsbn = FetchModal.isbnKey(meta.isbn || "") || noteIsbn;
+
     let douban: DoubanMeta | null = null;
-    // 豆瓣来的结果已经知道 subject id，直接抓详情页；其它来源走关键词搜索
+    // 豆瓣来的结果已经知道 subject id，直接抓详情页；其它来源先试 ISBN，再走关键词搜索
     if (this.useDouban || isNew || meta.origin === "douban" || meta.subjectId) {
       this.setStatus(t("正在查豆瓣的 ISBN / 页数…"));
       try {
-        douban = meta.subjectId
-          ? await fetchDoubanById(meta.subjectId)
-          : await fetchDouban(meta.title ?? this.keyword, meta.author);
+        if (meta.subjectId) douban = await fetchDoubanById(meta.subjectId);
+        else if (lookupIsbn) douban = await fetchDoubanByIsbn(lookupIsbn);
+        if (!douban) {
+          douban = await fetchDouban(meta.title ?? this.keyword, meta.author);
+        }
       } catch {
         douban = null;
       }

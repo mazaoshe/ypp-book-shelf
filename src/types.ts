@@ -27,7 +27,9 @@ export interface DoubanMeta {
   pages?: number;
   yearPublished?: string;
   publisher?: string;
+  author?: string;
   translator?: string;
+  cover?: string;
   rating?: string;
   desc?: string;
   subjectId?: string;

@@ -171,6 +171,117 @@ export async function fetchDouban(
   return fetchDoubanById(subjectId);
 }
 
+/** ISBN 归一化：只留数字和 X */
+function isbnKeyOf(raw: string): string {
+  return (raw ?? "").replace(/[^0-9Xx]/g, "").toUpperCase();
+}
+
+/**
+ * 从 `window.__DATA__ = {...}` 这类行内脚本里取出第一个完整 JSON 对象。
+ * 正则截取会在遇到后续脚本时抾“Extra data”报错，所以用括号计数扫描。
+ */
+function extractFirstJsonObject(text: string, fromIndex: number): unknown {
+  const start = text.indexOf("{", fromIndex);
+  if (start < 0) return null;
+  let depth = 0;
+  let inStr = false;
+  let esc = false;
+  for (let i = start; i < text.length; i++) {
+    const ch = text[i];
+    if (inStr) {
+      if (esc) esc = false;
+      else if (ch === "\\") esc = true;
+      else if (ch === '"') inStr = false;
+      continue;
+    }
+    if (ch === '"') inStr = true;
+    else if (ch === "{") depth++;
+    else if (ch === "}") {
+      depth--;
+      if (depth === 0) {
+        try {
+          return JSON.parse(text.slice(start, i + 1));
+        } catch {
+          return null;
+        }
+      }
+    }
+  }
+  return null;
+}
+
+/**
+ * 按 ISBN 精准查豆瓣。suggest 接口不认 ISBN（实测全返回 `[]`），
+ * 得走 `search.douban.com/book/subject_search` 页面里的 `window.__DATA__`，
+ * 拿到 subject id 后再抓详情页，最后校验 ISBN 对得上才返回。
+ */
+export async function fetchDoubanByIsbn(isbn: string): Promise<DoubanMeta | null> {
+  const key = isbnKeyOf(isbn);
+  if (!key) return null;
+
+  const res = await requestUrl({
+    url: `https://search.douban.com/book/subject_search?search_text=${key}&cat=1001`,
+    method: "GET",
+    headers: { Referer: DOUBAN_REFERER },
+    throw: false,
+  });
+  if (res.status !== 200) return null;
+
+  const marker = res.text.indexOf("window.__DATA__");
+  if (marker < 0) return null;
+  const data = extractFirstJsonObject(res.text, marker) as {
+    items?: { url?: string }[];
+  } | null;
+  const items = data?.items ?? [];
+
+  for (const item of items) {
+    const subjectId = String(item?.url ?? "").match(/subject\/(\d+)/)?.[1] ?? "";
+    if (!subjectId) continue;
+    const meta = await fetchDoubanById(subjectId);
+    if (!meta) continue;
+    // ISBN 对不上就换下一条，宁可不补也不写错
+    const got = isbnKeyOf(meta.isbn ?? "");
+    if (got && got !== key) continue;
+    return meta;
+  }
+  return null;
+}
+
+/** 关键词是不是 ISBN（10 位或 13 位，允许带连字符） */
+export function looksLikeIsbn(keyword: string): boolean {
+  const k = (keyword ?? "").replace(/[^0-9Xx]/g, "");
+  return k.length === 13 || k.length === 10;
+}
+
+/**
+ * 新建书籍时直接用 ISBN 搜：返回豆瓣那一条结果（带封面），
+ * 搜不到就返回空数组，让上层提示没结果。
+ */
+export async function searchDoubanByIsbn(isbn: string): Promise<BookMeta[]> {
+  const meta = await fetchDoubanByIsbn(isbn);
+  if (!meta || !meta.title) return [];
+  return [
+    {
+      title: meta.title,
+      author: meta.author ?? "",
+      translator: meta.translator ?? "",
+      publisher: meta.publisher ?? "",
+      cover: meta.cover ?? "",
+      intro: meta.desc ?? "",
+      isbn: meta.isbn ?? "",
+      pages: meta.pages,
+      yearPublished: meta.yearPublished ?? "",
+      rating: meta.rating ?? "",
+      subjectId: meta.subjectId ?? "",
+      sourceUrl: meta.subjectId
+        ? `https://book.douban.com/subject/${meta.subjectId}/`
+        : "",
+      origin: "douban" as const,
+      sources: ["douban" as const],
+    },
+  ];
+}
+
 /** 直接抓豆瓣详情页（已知 subject id 时用，省一次 suggest 请求） */
 export async function fetchDoubanById(subjectId: string): Promise<DoubanMeta | null> {
   if (!subjectId) return null;
@@ -191,9 +302,13 @@ export async function fetchDoubanById(subjectId: string): Promise<DoubanMeta | n
     isbn: pick(html, /ISBN:?<\/span>\s*([0-9Xx-]+)/),
     pages: pagesRaw ? Number(pagesRaw) : undefined,
     yearPublished: pick(html, /出版年:?<\/span>\s*([^<]+)/),
-    publisher: pick(html, /出版社:?<\/span>\s*([^<]+)/),
-    translator: pickTranslators(html),
-    rating: pick(html, /property="v:average">([0-9.]+)</),
+    // 出版社在详情页里是 <a> 包着的，直接取 [^<]+ 会拿到空白
+    publisher: pick(html, /出版社:?<\/span>\s*(?:<a[^>]*>)?([^<]+)/),
+    author: pickLinkedField(html, "作者"),
+    translator: pickLinkedField(html, "译者"),
+    cover: pick(html, /<div id="mainpic"[\s\S]{0,600}?<img src="([^"]+)"/),
+    // 评分那行形如 <strong property="v:average"> 9.1 </strong>，两头都有空白
+    rating: pick(html, /property="v:average">\s*([0-9.]+)\s*</),
     desc: "",
   };
   const introMatch = html.match(/<div class="intro">([\s\S]*?)<\/div>/);
@@ -202,11 +317,11 @@ export async function fetchDoubanById(subjectId: string): Promise<DoubanMeta | n
 }
 
 /**
- * 豆瓣详情页里译者是一个个 <a>，可能多人合译（用 / 分隔），全部取出。
- * 形如 `<span class="pl">译者</span>: <a href="/search/袁国忠">袁国忠</a>`
+ * 豆瓣详情页里「作者」「译者」是一个个 <a>，可能多人合著/合译（用 / 分隔），全部取出。
+ * 形如 `<span class="pl"> 译者</span>: <a href="/author/4617349">马振骋</a>`
  */
-function pickTranslators(html: string): string {
-  const block = html.match(/译者<\/span>([\s\S]{0,400}?)<\/span>/);
+function pickLinkedField(html: string, label: string): string {
+  const block = html.match(new RegExp(`${label}</span>([\\s\\S]{0,400}?)</span>`));
   if (!block) return "";
   const names = [...block[1].matchAll(/>([^<>]+)<\/a>/g)]
     .map((m) => m[1].trim())
