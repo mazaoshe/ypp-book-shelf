@@ -8,6 +8,7 @@ import type { DoubanMeta } from "./types";
 import { asStr, getFm } from "./fm";
 import { markdownIn } from "./vaultScope";
 import { t } from "./i18n";
+import { confirmDialog } from "./confirmModal";
 
 function sanitizeName(s: string): string {
   return s
@@ -302,8 +303,79 @@ export class FetchModal extends Modal {
       .replace(/[《》（）()【】[\]\s:：,，.。、\-_—!！?？'"“”]/g, "");
   }
 
+  /**
+   * 两条记录是不是同一本书：ISBN 或微信读书 bookId 任一相同就是同一本，
+   * 任一不同就是不同的书，两者都没法比时算未知（当作同一本，保留旧行为）。
+   */
+  private static compareBookIds(
+    curIsbn: string,
+    curBookId: string,
+    newIsbn: string,
+    newBookId: string
+  ): "same" | "diff" | "unknown" {
+    if (curIsbn && newIsbn && curIsbn === newIsbn) return "same";
+    if (curBookId && newBookId && curBookId === newBookId) return "same";
+    if ((curIsbn && newIsbn) || (curBookId && newBookId)) return "diff";
+    return "unknown";
+  }
+
+  /** 补全模式下的守卫：选中的结果不是这本书时先问一句 */
+  private async ensureSameBook(
+    file: TFile,
+    meta: BookMeta,
+    douban: DoubanMeta | null
+  ): Promise<boolean> {
+    const fm = getFm(this.app, file);
+    const curIsbn = FetchModal.isbnKey(asStr(fm["isbn"]));
+    const curBookId = asStr(fm["bookId"]).trim();
+    const newIsbn = FetchModal.isbnKey(meta.isbn || douban?.isbn || "");
+    const newBookId = (meta.bookId || "").trim();
+    const rel = FetchModal.compareBookIds(curIsbn, curBookId, newIsbn, newBookId);
+    if (rel !== "diff") return true;
+
+    const curTitle = file.basename;
+    const newTitle = meta.title || this.keyword;
+    const ok = await confirmDialog(this.app, {
+      title: t("这可能是另一本书"),
+      lines: [
+        t("当前笔记：《{cur}》（ISBN {isbn}）", { cur: curTitle, isbn: curIsbn || "—" }),
+        t("你选中的：《{next}》（ISBN {isbn}）", { next: newTitle, isbn: newIsbn || "—" }),
+        t("同一本书的不同译本、不同出版社版本，建议新建一篇笔记，覆盖会丢版本信息。"),
+      ],
+      okText: t("仍然覆盖"),
+      cancelText: t("取消"),
+    });
+    if (ok) this.overwrite = true;
+    return ok;
+  }
+
+  /** ISBN 归一化：去掉连字符和空格，大小写统一，只为比较 */
+  private static isbnKey(raw: string): string {
+    return (raw ?? "").replace(/[^0-9Xx]/g, "").toUpperCase();
+  }
+
+  /** 同名不同出版版本的笔记文件名后缀，优先用译者 */
+  private static editionSuffix(translator: string, isbnKey: string): string {
+    const tr = (translator ?? "").trim();
+    if (tr) return `（${tr} 译）`;
+    return `（${isbnKey}）`;
+  }
+
+  /** 这个书名已经被某个版本占了（包含已带后缀的本子），用于决定新笔记要不要加后缀 */
+  private titleTakenByAnotherEdition(title: string): boolean {
+    const raw = title.trim();
+    if (!raw) return false;
+    const root = (this.plugin.settings.folder || "").replace(/\/$/, "");
+    for (const f of markdownIn(this.app, root)) {
+      const base = f.basename.trim();
+      // norm() 会把全角括号当成噪音去掉，所以这里比 raw 文件名
+      if (base === raw || base.startsWith(`${raw}（`)) return true;
+    }
+    return false;
+  }
+
   /** 库里已有同名书（或在书目录下已有同名子目录）时，返回那篇笔记 */
-  private findExisting(title: string): TFile | null {
+  private findExisting(title: string, isbnKey?: string, bookId?: string): TFile | null {
     const target = FetchModal.norm(title);
     if (!target) return null;
     const root = (this.plugin.settings.folder || "").replace(/\/$/, "");
@@ -311,12 +383,25 @@ export class FetchModal extends Modal {
     for (const f of markdownIn(this.app, root)) {
       const base = FetchModal.norm(f.basename);
       const fm = getFm(this.app, f);
+      // 同名但 ISBN / bookId 对不上 → 是另一个译本或版本，不能当同一本书覆盖
+      const rel = FetchModal.compareBookIds(
+        FetchModal.isbnKey(asStr(fm["isbn"])),
+        asStr(fm["bookId"]).trim(),
+        isbnKey ?? "",
+        bookId ?? ""
+      );
+      if (rel === "diff") continue;
       const rawTitle = asStr(fm["title"])
         .replace(/^!?\[\[/, "")
         .replace(/\]\]$/, "")
         .split("|")[0];
       const fmTitle = FetchModal.norm(rawTitle);
-      const hit = base === target || fmTitle === target || (target.length > 3 && base.startsWith(target));
+      const hit =
+        base === target ||
+        fmTitle === target ||
+        (target.length > 3 && base.startsWith(target)) ||
+        // 带后缀的版本：书名（译者 译）
+        f.basename.trim().startsWith(`${title.trim()}（`);
       if (!hit) continue;
       let score = base === target || fmTitle === target ? 0 : 50;
       if (root && f.path.startsWith(root + "/")) score -= 10;
@@ -328,10 +413,14 @@ export class FetchModal extends Modal {
     return cands[0].file;
   }
 
-  private async createNote(meta: BookMeta, douban: DoubanLite | null): Promise<TFile> {
+  private async createNote(
+    meta: BookMeta,
+    douban: DoubanLite | null,
+    nameOverride?: string
+  ): Promise<TFile> {
     const s = this.plugin.settings;
     const root = (s.folder || "Sources/Books").replace(/\/$/, "");
-    const name = sanitizeName(meta.title || this.keyword) || t("未命名书籍");
+    const name = sanitizeName(nameOverride || meta.title || this.keyword) || t("未命名书籍");
     const dir = normalizePath(`${root}/${name}`);
 
     const folder = this.app.vault.getAbstractFileByPath(dir);
@@ -398,16 +487,28 @@ export class FetchModal extends Modal {
 
     if (isNew) {
       const title = meta.title || this.keyword;
-      const existing = this.findExisting(title);
+      const isbnKey = FetchModal.isbnKey(meta.isbn || douban?.isbn || "");
+      const bookId = (meta.bookId || "").trim();
+      const existing = this.findExisting(title, isbnKey, bookId);
       if (existing) {
         this.setStatus(t("库里已有这本书，改为补全现有笔记…"));
         this.file = existing;
         this.overwrite = true;
         isNew = false;
       } else {
+        // 同名笔记已存在但 ISBN 对不上 → 这是另一个译本/版本，文件名带上译者区分
+        const translator = (meta.translator || douban?.translator || "").trim();
+        const nameOverride =
+          isbnKey && this.titleTakenByAnotherEdition(title)
+            ? `${title}${FetchModal.editionSuffix(translator, isbnKey)}`
+            : undefined;
         this.setStatus(t("正在创建笔记…"));
-        this.file = await this.createNote(meta, douban);
+        this.file = await this.createNote(meta, douban, nameOverride);
       }
+    } else if (this.file) {
+      // 补全模式：得先确认选中的确实是同一本书，否则会把别人的书名/属性写进来
+      const ok = await this.ensureSameBook(this.file, meta, douban);
+      if (!ok) return this.file;
     }
     const file = this.file;
 
@@ -437,10 +538,20 @@ export class FetchModal extends Modal {
       // 封面优先落盘到本地；下载失败才用图片地址
       if (localCoverName) fm[s.coverField || "cover"] = localCoverName;
       else if (remoteCover) fm[s.coverField || "cover"] = remoteCover;
-      if (meta.title) fm.title = `[[${meta.title}]]`;
+      // 书名只补空，不覆盖：补全模式下选错书时别把别人的书名写进来
+      if (meta.title) setIfEmpty("title", `[[${meta.title}]]`);
       if (meta.bookId) setIfEmpty("bookId", meta.bookId);
       if (meta.rating) setIfEmpty("wereadRating", meta.rating);
       if (meta.author) setIfEmpty(s.authorField || "author", [meta.author]);
+      // 译者单独存属性：同一本书的不同译本靠它区分，读者在意
+      const translator = (meta.translator || douban?.translator || "").trim();
+      if (translator) {
+        const parts = translator
+          .split(/\s*[/、]\s*/)
+          .map((x) => x.trim())
+          .filter(Boolean);
+        setIfEmpty(s.translatorField || "translator", parts);
+      }
       if (meta.publisher && !isNew) setIfEmpty("publisher", meta.publisher);
       if (meta.intro) setIfEmpty("desc", meta.intro);
       else if (douban?.desc) setIfEmpty("desc", douban.desc);

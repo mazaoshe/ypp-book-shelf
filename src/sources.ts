@@ -192,12 +192,26 @@ export async function fetchDoubanById(subjectId: string): Promise<DoubanMeta | n
     pages: pagesRaw ? Number(pagesRaw) : undefined,
     yearPublished: pick(html, /出版年:?<\/span>\s*([^<]+)/),
     publisher: pick(html, /出版社:?<\/span>\s*([^<]+)/),
+    translator: pickTranslators(html),
     rating: pick(html, /property="v:average">([0-9.]+)</),
     desc: "",
   };
   const introMatch = html.match(/<div class="intro">([\s\S]*?)<\/div>/);
   if (introMatch) meta.desc = stripTags(introMatch[1]).slice(0, 600);
   return meta;
+}
+
+/**
+ * 豆瓣详情页里译者是一个个 <a>，可能多人合译（用 / 分隔），全部取出。
+ * 形如 `<span class="pl">译者</span>: <a href="/search/袁国忠">袁国忠</a>`
+ */
+function pickTranslators(html: string): string {
+  const block = html.match(/译者<\/span>([\s\S]{0,400}?)<\/span>/);
+  if (!block) return "";
+  const names = [...block[1].matchAll(/>([^<>]+)<\/a>/g)]
+    .map((m) => m[1].trim())
+    .filter(Boolean);
+  return [...new Set(names)].join(" / ");
 }
 
 /** 下载远程图片为二进制 */

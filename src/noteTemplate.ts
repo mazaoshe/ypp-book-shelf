@@ -17,6 +17,7 @@ export interface DoubanLite {
   pages?: number;
   yearPublished?: string;
   publisher?: string;
+  translator?: string;
   subjectId?: string;
   rating?: string;
   cover?: string;
@@ -45,6 +46,14 @@ export function buildBookNote(
   const cover = meta.cover || douban?.cover || "";
   const coverRef = opts.hasLocalCover || !cover ? "cover.jpg" : cover;
   const author = meta.author ? [meta.author] : [];
+  // 译者可能多人合译，豆瓣/微信读书都用 / 分隔，拆成数组存
+  const translatorRaw = (meta.translator || douban?.translator || "").trim();
+  const translators = translatorRaw
+    ? translatorRaw
+        .split(/\s*[/、]\s*/)
+        .map((s) => s.trim())
+        .filter(Boolean)
+    : [];
   const isbn = meta.isbn || douban?.isbn || "";
   const year = douban?.yearPublished
     ? String(parseInt(String(douban.yearPublished).slice(0, 4), 10) || "")
@@ -58,7 +67,8 @@ export function buildBookNote(
     ["title", `"[[${title}]]"`],
     ["tags", ""],
     ["cover", cover ? yamlStr(cover) : ""],
-    ["author", ""]
+    ["author", ""],
+    ["translator", ""]
   );
   const rest: [string, string][] = [
     ["isbn", isbn],
@@ -84,6 +94,13 @@ export function buildBookNote(
       for (const a of author) lines.push(`  - ${yamlStr(a)}`);
       continue;
     }
+    if (k === "translator") {
+      // 没译者时不写这个键，避免每本书都留一行空 translator:
+      if (translators.length === 0) continue;
+      lines.push("translator:");
+      for (const a of translators) lines.push(`  - ${yamlStr(a)}`);
+      continue;
+    }
     lines.push(v === "" ? `${k}:` : `${k}: ${v}`);
   }
   lines.push(...extra, "---", "");
@@ -101,6 +118,7 @@ export function buildBookNote(
     "|:------ |:------------------------------------------ |",
     row("ISBN   ", isbn),
     row("作者   ", author.length ? `- ${author.join(" / ")}` : ""),
+    row("译者   ", translators.length ? `- ${translators.join(" / ")}` : ""),
     row("出版年 ", year),
     row("出版社 ", douban?.publisher || ""),
     row("来源   ", source),

@@ -27,6 +27,7 @@ export interface DoubanMeta {
   pages?: number;
   yearPublished?: string;
   publisher?: string;
+  translator?: string;
   rating?: string;
   desc?: string;
   subjectId?: string;
@@ -38,6 +39,8 @@ export interface BookItem {
   frontmatter: Fm;
   title: string;
   author: string;
+  /** 译者，多人用 / 拼起来；没译者时为空串 */
+  translator: string;
   cover: string;
   status: string;
 }

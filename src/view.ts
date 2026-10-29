@@ -279,7 +279,14 @@ export class BookShelfView extends ItemView {
       titleEl.onclick = () => this.app.workspace.getLeaf(false).openFile(book.file);
       titleEl.title = book.file.path;
 
-      if (book.author) body.createDiv({ cls: "bs-author", text: book.author });
+      // 副标题显示作者·译者，同一本书的不同译本一眼能分开
+      const byline = [
+        book.author,
+        book.translator ? t("译：{name}", { name: book.translator }) : "",
+      ]
+        .filter(Boolean)
+        .join(" · ");
+      if (byline) body.createDiv({ cls: "bs-author", text: byline });
 
       const tags = body.createDiv({ cls: "bs-tags" });
       if (book.status) tags.createSpan({ cls: "bs-tag", text: book.status });

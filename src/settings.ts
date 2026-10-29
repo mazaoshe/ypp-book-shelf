@@ -12,6 +12,7 @@ export interface BookShelfSettings {
   statusField: string;
   coverField: string;
   authorField: string;
+  translatorField: string;
   enableDouban: boolean;
   enableWeread: boolean;
   coverFileName: string;
@@ -40,6 +41,7 @@ export const DEFAULT_SETTINGS: BookShelfSettings = {
   statusField: "readingStatus",
   coverField: "cover",
   authorField: "author",
+  translatorField: "translator",
   enableDouban: true,
   enableWeread: true,
   coverFileName: "cover.jpg",
@@ -155,6 +157,18 @@ export class BookShelfSettingTab extends PluginSettingTab {
           .setValue(this.plugin.settings.authorField)
           .onChange(async (v) => {
             this.plugin.settings.authorField = v.trim() || "author";
+            await this.plugin.saveSettings();
+          })
+      );
+
+    new Setting(containerEl)
+      .setName(t("译者字段"))
+      .setDesc(t("默认 translator，存成数组；没译者时不写这个键"))
+      .addText((tc) =>
+        tc
+          .setValue(this.plugin.settings.translatorField)
+          .onChange(async (v) => {
+            this.plugin.settings.translatorField = v.trim() || "translator";
             await this.plugin.saveSettings();
           })
       );

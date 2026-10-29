@@ -85,6 +85,14 @@ export function collectBooks(app: App, s: BookShelfSettings) {
       author = author.replace(/\[\[|\]\]/g, "");
     }
 
+    const rawTranslator = fm[s.translatorField || "translator"];
+    let translator = Array.isArray(rawTranslator)
+      ? rawTranslator.map((v) => asStr(v)).filter(Boolean).join(" / ")
+      : asStr(rawTranslator);
+    if (translator.startsWith("[[")) {
+      translator = translator.replace(/\[\[|\]\]/g, "");
+    }
+
     const status = normalizeStatus(fm[s.statusField || "readingStatus"]);
 
     items.push({
@@ -92,6 +100,7 @@ export function collectBooks(app: App, s: BookShelfSettings) {
       frontmatter: fm,
       title: file.basename,
       author,
+      translator,
       cover,
       status,
     });
