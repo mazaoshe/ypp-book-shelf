@@ -354,8 +354,10 @@ export class BookShelfView extends ItemView {
   private async resolveRemote(url: string): Promise<string> {
     const hit = this.remoteCache.get(url);
     if (hit) return hit;
+    const headers: Record<string, string> = {};
+    if (url.includes("doubanio.com")) headers.Referer = "https://book.douban.com/";
     try {
-      const res = await requestUrl({ url, throw: false });
+      const res = await requestUrl({ url, headers, throw: false });
       if (res.status < 200 || res.status >= 300) return "";
       const type = res.headers["content-type"] ?? "image/jpeg";
       const blob = new Blob([res.arrayBuffer], { type });
