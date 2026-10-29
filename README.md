@@ -34,13 +34,27 @@ Browse the book notes in your vault as a cover shelf, and complete covers and me
 
 ## 安装 / Install
 
-尚未上架社区市场，手动安装：
+已在 Obsidian 社区市场发布：[YPP Book Shelf](https://community.obsidian.md/account/plugins/ypp-book-shelf)
+
+**方式一：社区市场（推荐）**
+
+1. Obsidian「设置 → 第三方插件 → 社区插件市场 → 浏览」
+2. 搜索 **YPP Book Shelf** 并安装、启用
+
+**方式二：手动安装**
 
 1. 在 Release 下载 `main.js`、`manifest.json`、`styles.css`
 2. 放到 `<你的库>/.obsidian/plugins/ypp-book-shelf/`
 3. 重启 Obsidian，在「第三方插件」里启用 **YPP Book Shelf**
 
-The plugin is not in the community store yet, so install it manually:
+Published in the Obsidian community store: [YPP Book Shelf](https://community.obsidian.md/account/plugins/ypp-book-shelf)
+
+**Option 1: community store (recommended)**
+
+1. In Obsidian, go to Settings → Community plugins → Browse.
+2. Search for **YPP Book Shelf**, install and enable it.
+
+**Option 2: manual install**
 
 1. Download `main.js`, `manifest.json` and `styles.css` from the latest release.
 2. Put the three files into `<your vault>/.obsidian/plugins/ypp-book-shelf/`.
