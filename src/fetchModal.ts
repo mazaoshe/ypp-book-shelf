@@ -1,6 +1,7 @@
 import { App, Modal, Notice, TFile, TFolder, normalizePath } from "obsidian";
 import type BookShelfPlugin from "./main";
 import { fetchDouban, fetchDoubanById, searchDouban, searchWeread } from "./sources";
+import { coverFileNameFor, downloadImage } from "./sources";
 import { BookMeta } from "./types";
 import { buildBookNote, DoubanLite } from "./noteTemplate";
 import type { DoubanMeta } from "./types";
@@ -358,6 +359,26 @@ export class FetchModal extends Modal {
     return this.app.vault.create(path, text);
   }
 
+  /**
+   * 把远程封面存成书籍同目录的 cover 系列文件，返回写下的文件名；失败返回 null（画面回落外链）。
+   * 存本地以后拔网、微信读书把 cover 刷回外链都不影响封面显示。
+   */
+  private async downloadCover(file: TFile, url: string): Promise<string | null> {
+    if (!/^https?:\/\//i.test(url)) return null;
+    const s = this.plugin.settings;
+    const name = coverFileNameFor(url, s.coverFileName || "cover.jpg");
+    const dir = file.parent?.path ?? "";
+    const path = normalizePath(!dir || dir === "/" ? name : `${dir}/${name}`);
+    try {
+      const buf = await downloadImage(url);
+      if (!buf || buf.byteLength === 0) return null;
+      await this.app.vault.adapter.writeBinary(path, buf);
+      return name;
+    } catch {
+      return null;
+    }
+  }
+
   private async apply(meta: BookMeta): Promise<TFile> {
     const s = this.plugin.settings;
     let isNew = this.isNew;
@@ -390,6 +411,14 @@ export class FetchModal extends Modal {
     }
     const file = this.file;
 
+    // 封面先尝试存本地；失败保留外链，渲染时走 requestUrl 绕防盗链
+    const remoteCover = meta.cover || "";
+    let localCoverName: string | null = null;
+    if (remoteCover && this.plugin.settings.downloadCover === true) {
+      this.setStatus(t("正在下载封面…"));
+      localCoverName = await this.downloadCover(file, remoteCover);
+    }
+
     this.setStatus(t("正在写入属性…"));
     const overwrite = this.overwrite || isNew;
 
@@ -405,8 +434,9 @@ export class FetchModal extends Modal {
         if (empty || overwrite) fm[key] = value;
       };
 
-      // 不下载封面：直接用图片地址，渲染时走 requestUrl 绕防盗链
-      if (meta.cover) fm[s.coverField || "cover"] = meta.cover;
+      // 封面优先落盘到本地；下载失败才用图片地址
+      if (localCoverName) fm[s.coverField || "cover"] = localCoverName;
+      else if (remoteCover) fm[s.coverField || "cover"] = remoteCover;
       if (meta.title) fm.title = `[[${meta.title}]]`;
       if (meta.bookId) setIfEmpty("bookId", meta.bookId);
       if (meta.rating) setIfEmpty("wereadRating", meta.rating);

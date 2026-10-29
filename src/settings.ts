@@ -15,6 +15,8 @@ export interface BookShelfSettings {
   enableDouban: boolean;
   enableWeread: boolean;
   coverFileName: string;
+  /** 补全时把远程封面下载到书籍目录；关闭则保留在线链接 */
+  downloadCover: boolean;
   requireDesc: boolean;
   defaultFrontmatter: string;
   /** 阅读活动记录（按天累计，插件自动维护） */
@@ -41,6 +43,7 @@ export const DEFAULT_SETTINGS: BookShelfSettings = {
   enableDouban: true,
   enableWeread: true,
   coverFileName: "cover.jpg",
+  downloadCover: false,
   requireDesc: false,
   defaultFrontmatter: "",
   /** 新建书籍时写入 type 的值，留空则不写 */
@@ -164,6 +167,22 @@ export class BookShelfSettingTab extends PluginSettingTab {
           .setValue(this.plugin.settings.coverFileName)
           .onChange(async (v) => {
             this.plugin.settings.coverFileName = v.trim() || "cover.jpg";
+            await this.plugin.saveSettings();
+          })
+      );
+
+    new Setting(containerEl)
+      .setName(t("下载封面到书籍目录"))
+      .setDesc(
+        t(
+          "关闭时只记图片链接，目录更干净；开启后把封面存成同目录的 cover 文件，断网也能显示"
+        )
+      )
+      .addToggle((tc) =>
+        tc
+          .setValue(this.plugin.settings.downloadCover === true)
+          .onChange(async (v) => {
+            this.plugin.settings.downloadCover = v;
             await this.plugin.saveSettings();
           })
       );

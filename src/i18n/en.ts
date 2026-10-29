@@ -70,6 +70,7 @@ export const EN: Record<string, string> = {
   "库里已有这本书，改为补全现有笔记…": "This book already exists, completing the existing note…",
   "正在创建笔记": "Creating note…",
   "正在创建笔记…": "Creating note…",
+  "正在下载封面…": "Downloading cover…",
   "正在写入属性…": "Writing fields…",
   "完成": "Done",
 
@@ -93,6 +94,9 @@ export const EN: Record<string, string> = {
   "同目录下这个文件优先作为封面，不依赖 frontmatter 的 cover":
     "If this file exists next to the note it wins over the cover field",
   "把简介算作缺项": "Treat missing description as incomplete",
+  "下载封面到书籍目录": "Save covers next to the book note",
+  "关闭时只记图片链接，目录更干净；开启后把封面存成同目录的 cover 文件，断网也能显示":
+    "When off, only the image URL is stored, which keeps the folder clean. When on, the cover is saved as a file next to the book note and keeps working offline.",
   "关闭时只有缺封面或缺作者才显示「补全」。微信读书笔记一般不带简介，建议关闭":
     "When off, the “Fill in” button only shows for a missing cover or author. WeRead notes usually have no description, so keep this off.",
   "新建书籍的默认属性": "Default frontmatter for new books",

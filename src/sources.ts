@@ -208,3 +208,17 @@ export async function downloadImage(url: string): Promise<ArrayBuffer | null> {
   if (res.status !== 200) return null;
   return res.arrayBuffer;
 }
+
+/**
+ * 根据图片地址猜一个本地文件名：同目录的 cover 系列。
+ * view.ts 的 localCover() 依次找 cover.jpg / .png / .jpeg / .webp，所以扩展名要跟原图对上。
+ */
+export function coverFileNameFor(url: string, base = "cover.jpg"): string {
+  const stem = base.replace(/\.[^.]+$/, "") || "cover";
+  const path = url.split("?")[0].split("#")[0];
+  const m = path.match(/\.(jpe?g|png|webp|gif)$/i);
+  const fromUrl = m ? m[1].toLowerCase().replace("jpeg", "jpg") : "";
+  const fromBase = (base.match(/\.[^.]+$/)?.[0] ?? ".jpg").slice(1).toLowerCase();
+  const ext = fromUrl || (fromBase === "jpeg" ? "jpg" : fromBase);
+  return `${stem}.${ext}`;
+}
