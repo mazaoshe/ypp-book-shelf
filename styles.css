@@ -179,9 +179,9 @@
 }
 
 /* 小封面列：悬停时在右上弹出大图（大图挂在 body 上，见 .bs-cover-preview） */
-.bs-col-cover {
+.bs-table .bs-col-cover {
   width: 44px;
-  padding-right: 0 !important;
+  padding-right: 0;
 }
 
 .bs-thumb {
