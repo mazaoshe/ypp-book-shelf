@@ -157,6 +157,18 @@ export const EN: Record<string, string> = {
   "书": "book",
   "笔记": "Notes",
   "字数": "Words",
+  "支持与反馈": "Support and feedback",
+  "反馈问题": "Report a problem",
+  "用着有问题、想提需求，去 GitHub Issues 留一句；能附上 Obsidian 版本和报错就更好查":
+    "Bugs, requests and questions belong in GitHub Issues; your Obsidian version and any error message make it much easier to help.",
+  "打赏": "Donate",
+  "插件免费、代码开源。觉得有用就请我喝杯咖啡，帮我把它继续做下去":
+    "The plugin is free and open source. If it helps you, consider buying me a coffee to keep it going.",
+  "插件免费、代码开源。觉得有用就扫码请我喝杯咖啡，帮我把它继续做下去":
+    "The plugin is free and open source. If it helps you, scan the code below to buy me a coffee.",
+  "微信长按或扫一扫识别下面的赞赏码，金额随意，都是鼓励":
+    "Scan or long-press the WeChat code below to tip any amount. Every bit is encouragement.",
+  "微信赞赏码": "WeChat tip QR code",
   "{label}阅读天数": "{label} days reading",
   "{label}动手天数": "{label} days active",
   "有编辑记录的天数": "Days with edit records",

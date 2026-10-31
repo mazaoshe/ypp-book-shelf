@@ -6,7 +6,8 @@ Browse the book notes in your vault as a cover shelf, and complete covers and me
 
 ## 功能 / Features
 
-- 以封面卡片浏览指定目录下的书籍笔记，支持搜索、6 种排序（最近修改 / 加入时间 / 书名 / 作者 / 评分 / 阅读状态）
+- 以封面卡片或表格列表浏览书籍笔记，支持搜索、分类筛选、六种以上排序（最近修改 / 加入时间 / 书名 / 作者 / 评分 / 阅读状态 / 页数 / 译者 / 出版社），视图与排序会记住
+- 列表视图带封面列、字数、简介，封面悬停放大，书名悬停直接预览笔记正文
 - 一键从微信读书搜索书名，写入封面、作者、出版社、简介、评分
 - 可选再从豆瓣补 ISBN、页数、出版年、出版社
 - 新建书籍时按固定版式生成笔记（bookinfo 卡片 + 简介 callout + 标准属性）
@@ -14,7 +15,8 @@ Browse the book notes in your vault as a cover shelf, and complete covers and me
 - 阅读统计：按天记录你编辑过哪些书，画出年历热力图、每月柱状图、偏好分析（分类雷达 + 作者 / 出版社 Top）
 - 统计对象可以是书籍目录，也可以换成任意目录（比如统计写作天数）
 
-- Browse the book notes in a folder you choose as cover cards, with search and six sort modes (recently modified, date added, title, author, rating, reading status).
+- Browse book notes as cover cards or as a sortable table, with search, category filter and nine sort modes (modified, added, title, author, rating, status, pages, translator, publisher). View mode and sort order are remembered.
+- The list view adds cover thumbnails, word count and description; hover a cover to enlarge it, hover a title to preview the note itself.
 - Search WeRead by title and write the cover, author, publisher, description and rating into the note with one click.
 - Optionally enrich the note from Douban with ISBN, page count, publication year and publisher.
 - Create new book notes from a fixed template (bookinfo card, description callout, standard frontmatter).
@@ -104,23 +106,36 @@ Both are undocumented endpoints rather than official APIs, so they may change or
 
 ## 已知限制 / Limitations
 
-- 封面以网络地址写入，不下载到本地；渲染时通过 Obsidian 的 `requestUrl` 绕开防盗链，图片会缓存在内存中（按会话）
+- 封面默认以网络地址写入，不下载到本地；可在设置里改成下载到书籍目录（默认关闭）。在线封面在渲染时通过 Obsidian 的 `requestUrl` 绕开防盗链，图片缓存在内存中（按会话）
 - 阅读统计从启用后开始累计，无法回溯历史（同步工具会覆盖文件修改时间）
 - 微信读书 / 豆瓣都是中文数据源，英文书的补全效果有限
 
-- Covers are stored as remote URLs instead of being downloaded. When rendering, the plugin fetches them through Obsidian's `requestUrl` to bypass hotlink protection and caches them in memory per session.
+- Covers are stored as remote URLs by default; you can switch to downloading them into the book folder in settings. Remote covers are fetched through Obsidian's `requestUrl` to bypass hotlink protection and cached in memory per session.
 - Reading stats accumulate from the moment the plugin is enabled; past activity cannot be reconstructed because sync tools overwrite file modification times.
 - WeRead and Douban are Chinese-language data sources, so metadata coverage for English books is limited.
 
 ## 版本 / Changelog
 
-- **0.2.1** — 通过 Obsidian 官方插件审核的 lint 检查：frontmatter 读取全面类型化、改用 `createSvg` / `trashFile` / `getLanguage` API、README 补齐英文
-- **0.2.0** — 界面支持中英双语；目录设置项支持自动补全；读完/在读改按阅读状态字段判断；卡片操作增加「⋯」按钮（移动端可用）
-- **0.1.0** — 首个版本
+完整更新记录见 [CHANGELOG.md](./CHANGELOG.md)，当前版本 0.4.0。
 
-- **0.2.1** — passes the official plugin lint suite: fully typed frontmatter access, switched to the `createSvg` / `trashFile` / `getLanguage` APIs, complete English README.
-- **0.2.0** — bilingual UI; folder autocomplete in settings; reading status is now read from the status field; card actions get a "⋯" menu that works on mobile.
-- **0.1.0** — first release.
+See [CHANGELOG.md](./CHANGELOG.md) for the full history; the current version is 0.4.0.
+
+## 反馈 / Feedback
+
+用着有问题、想提需求，去 [GitHub Issues](https://github.com/mazaoshe/ypp-book-shelf/issues) 留一句，能附上 Obsidian 版本和报错就更好查。
+
+觉得这个插件有用，可以扫码请我喝杯咖啡：
+
+<figure><img src="./images/wx-reward.png" alt="微信赞赏码" width="220"></figure>
+
+用微信扫一扫或长按识别，金额随意，都是鼓励。打赏不是买服务，插件的问题照旧走 Issues。
+
+Found a bug or want a feature? Open an issue on [GitHub](https://github.com/mazaoshe/ypp-book-shelf/issues); including your Obsidian version and any error message helps a lot.
+
+If this plugin saves you some time, you can buy me a coffee:
+<figure><img src="./images/wx-reward.png" alt="WeChat tip QR code" width="220"></figure>
+
+Scan it in WeChat (any amount). Donations are not a support contract — issues still go to GitHub as usual.
 
 ## License
 
