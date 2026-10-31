@@ -3,8 +3,8 @@ import type BookShelfPlugin from "./main";
 import { FetchModal } from "./fetchModal";
 import { listSep, t } from "./i18n";
 import { DeleteBookModal } from "./deleteModal";
-import { BookItem } from "./types";
-import { collectBooks } from "./library";
+import { BookItem, MissingKey } from "./types";
+import { collectBooks, countWords } from "./library";
 import { asStr } from "./fm";
 import { childFiles } from "./vaultScope";
 
@@ -14,6 +14,8 @@ export class BookShelfView extends ItemView {
   plugin: BookShelfPlugin;
   private searchText = "";
   private statusFilter = "全部";
+  private categoryFilter = "全部";
+  private viewMode: "grid" | "list" = "grid";
   private sortMode = "mtime";
   private sortDesc = true;
   private books: BookItem[] = [];
@@ -101,6 +103,10 @@ export class BookShelfView extends ItemView {
     const el = this.contentEl;
     el.empty();
 
+    // 视图模式与排序都以设置为准：上次切过就沿用，别每次重开都回默认
+    this.viewMode = this.plugin.settings.viewMode ?? "grid";
+    this.sortMode = this.plugin.settings.sortMode || "mtime";
+    this.sortDesc = this.plugin.settings.sortDesc ?? true;
     this.books = this.collectBooks();
 
     // 顶栏
@@ -113,7 +119,7 @@ export class BookShelfView extends ItemView {
     input.value = this.searchText;
     input.oninput = () => {
       this.searchText = input.value;
-      this.renderGrid();
+      this.renderItems();
     };
 
     const statuses = this.uniqueStatuses();
@@ -131,8 +137,50 @@ export class BookShelfView extends ItemView {
     }
     select.onchange = () => {
       this.statusFilter = select.value;
-      this.renderGrid();
+      this.renderItems();
     };
+
+    // 分类筛选：只认 category / genre，跟统计雷达取同一套大类
+    const categories = this.uniqueCategories();
+    const catCount = (c: string) =>
+      c === "全部"
+        ? this.books.length
+        : this.books.filter((b) => b.categories.includes(c)).length;
+    if (this.categoryFilter !== "全部" && !categories.includes(this.categoryFilter)) {
+      this.categoryFilter = "全部";
+    }
+    const catSelect = bar.createEl("select", { cls: "dropdown" });
+    catSelect.title = t("按分类筛选");
+    for (const c of ["全部", ...categories]) {
+      const opt = catSelect.createEl("option", {
+        text: t("{st}（{n}）", { st: c === "全部" ? t("全部") : c, n: catCount(c) }),
+        value: c,
+      });
+      if (c === this.categoryFilter) opt.selected = true;
+    }
+    catSelect.onchange = () => {
+      this.categoryFilter = catSelect.value;
+      this.renderItems();
+    };
+
+    const toggle = bar.createDiv({ cls: "bs-viewtoggle" });
+    const modes: ["grid" | "list", string][] = [
+      ["grid", t("网格")],
+      ["list", t("列表")],
+    ];
+    for (const [mode, label] of modes) {
+      const btn = toggle.createEl("button", {
+        text: label,
+        cls: this.viewMode === mode ? "bs-btn bs-btn-sm is-active" : "bs-btn bs-btn-sm",
+      });
+      btn.onclick = () => {
+        if (this.viewMode === mode) return;
+        this.viewMode = mode;
+        this.plugin.settings.viewMode = mode;
+        void this.plugin.saveSettings();
+        this.render();
+      };
+    }
 
     const sortSelect = bar.createEl("select", { cls: "dropdown" });
     const sortOptions: [string, string][] = [
@@ -142,6 +190,10 @@ export class BookShelfView extends ItemView {
       ["author", t("按作者")],
       ["rating", t("按评分")],
       ["status", t("按阅读状态")],
+      ["pages", t("按页数")],
+      ["category", t("按分类")],
+      ["translator", t("按译者")],
+      ["publisher", t("按出版社")],
     ];
     if (!sortOptions.some(([v]) => v === this.sortMode)) this.sortMode = "mtime";
     for (const [value, label] of sortOptions) {
@@ -150,7 +202,8 @@ export class BookShelfView extends ItemView {
     }
     sortSelect.onchange = () => {
       this.sortMode = sortSelect.value;
-      this.renderGrid();
+      this.persistSort();
+      this.renderItems();
     };
 
     const dirBtn = bar.createEl("button", {
@@ -161,7 +214,7 @@ export class BookShelfView extends ItemView {
     dirBtn.onclick = () => {
       this.sortDesc = !this.sortDesc;
       dirBtn.setText(this.sortDesc ? t("↓ 倒序") : t("↑ 正序"));
-      this.renderGrid();
+      this.renderItems();
     };
 
     const newBtn = bar.createEl("button", { text: t("+ 新建书籍"), cls: "bs-btn" });
@@ -183,7 +236,7 @@ export class BookShelfView extends ItemView {
     this.countEl = bar.createSpan({ cls: "bs-count" });
 
     this.gridEl = el.createDiv({ cls: "bs-grid" });
-    this.renderGrid();
+    this.renderItems();
   }
 
   private gridEl: HTMLElement;
@@ -195,10 +248,29 @@ export class BookShelfView extends ItemView {
     return Array.from(set);
   }
 
+  private uniqueCategories(): string[] {
+    const set = new Set<string>();
+    for (const b of this.books) for (const c of b.categories) set.add(c);
+    return Array.from(set).sort((a, b) => a.localeCompare(b, "zh"));
+  }
+
+  /** 缺字段 key → 当前语言文案 */
+  private missingLabel(k: MissingKey): string {
+    if (k === "cover") return t("封面");
+    if (k === "author") return t("作者");
+    return t("简介");
+  }
+
   private filteredBooks(): BookItem[] {
     const q = this.searchText.trim().toLowerCase();
     let list = this.books.filter((b) => {
       if (this.statusFilter !== "全部" && b.status !== this.statusFilter) return false;
+      if (
+        this.categoryFilter !== "全部" &&
+        !b.categories.includes(this.categoryFilter)
+      ) {
+        return false;
+      }
       if (!q) return true;
       return (
         b.title.toLowerCase().includes(q) || b.author.toLowerCase().includes(q)
@@ -206,8 +278,8 @@ export class BookShelfView extends ItemView {
     });
     const statusOrder = (s: string) =>
       s === "在读" ? 0 : s === "想读" ? 1 : s === "读完" ? 2 : 3;
-    const ratingNum = (b: BookItem) => {
-      const raw = asStr(b.frontmatter["rating"]);
+    const scoreNum = (b: BookItem) => {
+      const raw = b.score || asStr(b.frontmatter["rating"]);
       const stars = (raw.match(/[⭐★]/g) ?? []).length;
       if (stars > 0) return stars;
       const n = parseFloat(raw.replace(/[^\d.]/g, ""));
@@ -221,7 +293,18 @@ export class BookShelfView extends ItemView {
         case "author":
           return (a.author || "~zzz").localeCompare(b.author || "~zzz", "zh");
         case "rating":
-          return ratingNum(a) - ratingNum(b);
+          return scoreNum(a) - scoreNum(b);
+        case "pages":
+          return a.pages - b.pages;
+        case "translator":
+          return (a.translator || "~zzz").localeCompare(b.translator || "~zzz", "zh");
+        case "publisher":
+          return (a.publisher || "~zzz").localeCompare(b.publisher || "~zzz", "zh");
+        case "category":
+          return (a.categories[0] ?? "~zzz").localeCompare(
+            b.categories[0] ?? "~zzz",
+            "zh"
+          );
         case "ctime":
           return a.file.stat.ctime - b.file.stat.ctime;
         case "status": {
@@ -239,10 +322,10 @@ export class BookShelfView extends ItemView {
     return list;
   }
 
-  renderGrid() {
+  renderItems() {
     if (!this.gridEl) return;
-    const grid = this.gridEl;
-    grid.empty();
+    this.gridEl.empty();
+    this.gridEl.className = this.viewMode === "list" ? "bs-list-wrap" : "bs-grid";
     const list = this.filteredBooks();
 
     if (this.countEl) {
@@ -254,7 +337,7 @@ export class BookShelfView extends ItemView {
     }
 
     if (list.length === 0) {
-      grid.createDiv({
+      this.gridEl.createDiv({
         cls: "bs-empty",
         text: this.books.length
           ? t("没有匹配的书")
@@ -263,8 +346,13 @@ export class BookShelfView extends ItemView {
       return;
     }
 
+    if (this.viewMode === "list") this.renderTable(list);
+    else this.renderCards(list);
+  }
+
+  private renderCards(list: BookItem[]) {
     for (const book of list) {
-      const card = grid.createDiv({ cls: "bs-card" });
+      const card = this.gridEl.createDiv({ cls: "bs-card" });
 
       const coverBox = card.createDiv({ cls: "bs-cover" });
       const src = this.coverSrc(book.cover, book.file);
@@ -293,7 +381,7 @@ export class BookShelfView extends ItemView {
       const rating = asStr(book.frontmatter["rating"]);
       if (rating) tags.createSpan({ cls: "bs-tag bs-tag-rating", text: rating });
 
-      const missing = this.missingFields(book);
+      const missing = book.missing.map((k) => this.missingLabel(k));
       if (missing.length > 0) {
         const actions = body.createDiv({ cls: "bs-actions" });
         const fetchBtn = actions.createEl("button", {
@@ -325,6 +413,222 @@ export class BookShelfView extends ItemView {
     }
   }
 
+  /** 列表视图：封面 / 书名 / 作者 / 译者 / 出版社 / 评分 / 页数 / 状态 / 笔记 / 简介，表头点击排序 */
+  private renderTable(list: BookItem[]) {
+    this.hideCoverPreview();
+    this.hideHoverText();
+    const table = this.gridEl.createEl("table", { cls: "bs-table" });
+    const headRow = table.createEl("thead").createEl("tr");
+    headRow.createEl("th", { cls: "bs-col-cover" });
+    const sortable: [string, string, string][] = [
+      ["title", t("书名"), ""],
+      ["author", t("作者"), " bs-col-author"],
+      ["translator", t("译者"), " bs-col-wide"],
+      ["publisher", t("出版社"), " bs-col-wide"],
+      ["rating", t("评分"), " bs-col-num"],
+      ["pages", t("页数"), " bs-col-num"],
+      ["status", t("状态"), " bs-col-num"],
+    ];
+    for (const [key, label, extraCls] of sortable) {
+      const th = headRow.createEl("th", { cls: `bs-th-sort${extraCls}` });
+      const arrow = this.sortMode === key ? (this.sortDesc ? " ↓" : " ↑") : "";
+      th.setText(label + arrow);
+      th.onclick = () => {
+        if (this.sortMode === key) this.sortDesc = !this.sortDesc;
+        else {
+          this.sortMode = key;
+          // 书名/作者/译者/出版社默认正序，数字和状态默认倒序
+          this.sortDesc = ["rating", "pages", "status", "category"].includes(key);
+        }
+        this.persistSort();
+        this.render();
+      };
+    }
+    headRow.createEl("th", { cls: "bs-col-num", text: t("字数") });
+    headRow.createEl("th", { text: t("简介") });
+    headRow.createEl("th", { text: "" });
+
+    const tbody = table.createEl("tbody");
+    const pending: { file: TFile; cell: HTMLElement }[] = [];
+    for (const book of list) {
+      const tr = tbody.createEl("tr");
+
+      // 小封面，鼠标悬停时在右边弹出大图
+      const coverTd = tr.createEl("td", { cls: "bs-col-cover" });
+      const thumb = coverTd.createDiv({ cls: "bs-thumb" });
+      const thumbSrc = this.coverSrc(book.cover, book.file);
+      if (thumbSrc) {
+        this.setThumbImage(thumb, thumbSrc);
+        thumb.onmouseenter = () => {
+          const img = thumb.querySelector("img");
+          if (img?.src) this.showCoverPreview(img.src, thumb);
+        };
+        thumb.onmouseleave = () => this.hideCoverPreview();
+      }
+
+      const titleTd = tr.createEl("td", { cls: "bs-td-title" });
+      const nameEl = titleTd.createDiv({ cls: "bs-td-name", text: book.title });
+      nameEl.onclick = () => this.app.workspace.getLeaf(false).openFile(book.file);
+      // 悬停看笔记内容：走 Obsidian 原生页面预览（需开启核心插件「页面预览」）
+      nameEl.onmouseenter = (evt: MouseEvent) => {
+        this.app.workspace.trigger("hover-link", {
+          event: evt,
+          source: "ypp-book-shelf",
+          hoverParent: this,
+          targetEl: nameEl,
+          linktext: book.file.path,
+          sourcePath: book.file.path,
+        });
+      };
+      if (book.isbn) titleTd.createDiv({ cls: "bs-td-sub", text: `ISBN ${book.isbn}` });
+
+      tr.createEl("td", { cls: "bs-td-muted bs-col-author", text: book.author || "—" });
+      tr.createEl("td", { cls: "bs-td-muted bs-col-wide", text: book.translator || "—" });
+      tr.createEl("td", { cls: "bs-td-muted bs-col-wide", text: book.publisher || "—" });
+      tr.createEl("td", { cls: "bs-td-muted bs-col-num", text: book.score || "—" });
+      tr.createEl("td", {
+        cls: "bs-td-muted bs-col-num",
+        text: book.pages ? String(book.pages) : "—",
+      });
+
+      const statusTd = tr.createEl("td", { cls: "bs-col-num bs-td-status" });
+      if (book.status) statusTd.createSpan({ cls: "bs-tag", text: book.status });
+      else statusTd.setText("—");
+
+      // 字数要读笔记正文，先占位，读完再填
+      const wordTd = tr.createEl("td", { cls: "bs-td-muted bs-col-num" });
+      wordTd.setText("…");
+      pending.push({ file: book.file, cell: wordTd });
+
+      const descTd = tr.createEl("td", { cls: "bs-td-desc", text: book.desc || "—" });
+      if (book.desc) {
+        descTd.onmouseenter = () => this.showHoverText(book.desc, descTd);
+        descTd.onmouseleave = () => this.scheduleHideHoverText();
+      }
+
+      const moreBtn = tr.createEl("td").createEl("button", {
+        cls: "bs-row-more",
+        attr: { "aria-label": t("更多操作") },
+        text: "⋯",
+      });
+      moreBtn.onclick = (e) => {
+        e.stopPropagation();
+        const rect = moreBtn.getBoundingClientRect();
+        this.bookMenu(book).showAtPosition({ x: rect.left, y: rect.bottom });
+      };
+      tr.oncontextmenu = (e) => {
+        e.preventDefault();
+        this.bookMenu(book).showAtMouseEvent(e);
+      };
+    }
+
+    void this.fillWordCounts(pending);
+  }
+
+  /** 排序方式也写回设置，下次打开沿用 */
+  private persistSort() {
+    this.plugin.settings.sortMode = this.sortMode;
+    this.plugin.settings.sortDesc = this.sortDesc;
+    void this.plugin.saveSettings();
+  }
+
+  private setThumbImage(box: HTMLElement, src: string) {
+    const img = box.createEl("img");
+    if (/^https?:\/\//i.test(src)) {
+      void this.resolveRemote(src).then((local) => {
+        if (img.isConnected && local) img.src = local;
+      });
+    } else {
+      img.src = src;
+    }
+  }
+
+  private previewEl: HTMLElement | null = null;
+
+  /** 悬停大图挂在 body 上，否则会被表格的横向滚动容器裁掉 */
+  private showCoverPreview(src: string, anchor: HTMLElement) {
+    this.hideCoverPreview();
+    const rect = anchor.getBoundingClientRect();
+    const box = document.body.createDiv({ cls: "bs-cover-preview" });
+    const width = 160;
+    const height = 240;
+    const left = rect.right + 10 + width > window.innerWidth ? rect.left - width - 10 : rect.right + 10;
+    box.style.left = `${Math.max(4, left)}px`;
+    box.style.top = `${Math.max(4, Math.min(rect.top, window.innerHeight - height - 10))}px`;
+    box.createEl("img").src = src;
+    this.previewEl = box;
+  }
+
+  private hideCoverPreview() {
+    this.previewEl?.remove();
+    this.previewEl = null;
+  }
+
+  private quoteCache = new Map<string, number>();
+
+  /** 填「字数」列：只算正文，跳过 frontmatter 和书籍信息/内容简介 callout，按路径 + mtime 缓存 */
+  private async fillWordCounts(rows: { file: TFile; cell: HTMLElement }[]) {
+    await Promise.all(
+      rows.map(async ({ file, cell }) => {
+        const key = `${file.path}:${file.stat.mtime}`;
+        let n = this.quoteCache.get(key);
+        if (n === undefined) {
+          try {
+            n = countWords(await this.app.vault.cachedRead(file));
+          } catch {
+            n = 0;
+          }
+          if (this.quoteCache.size > 500) this.quoteCache.clear();
+          this.quoteCache.set(key, n);
+        }
+        if (cell.isConnected) {
+          cell.setText(n >= 10000 ? `${(n / 10000).toFixed(1)} 万` : String(n));
+        }
+      })
+    );
+  }
+
+  private hoverEl: HTMLElement | null = null;
+  private hoverTimer: number | null = null;
+
+  /** 悬停看全文（书名/简介）：挂在 body 上，不会被表格滚动容器裁掉 */
+  private showHoverText(text: string, anchor: HTMLElement) {
+    this.cancelHideHoverText();
+    this.hideHoverText();
+    if (!text.trim()) return;
+    const rect = anchor.getBoundingClientRect();
+    const box = document.body.createDiv({ cls: "bs-hover-text", text });
+    const width = Math.min(420, window.innerWidth - 16);
+    box.style.width = `${width}px`;
+    const height = Math.min(box.getBoundingClientRect().height, 320);
+    const left = Math.max(4, Math.min(rect.left, window.innerWidth - width - 4));
+    const below = rect.bottom + 8;
+    const top = below + height > window.innerHeight - 4 ? Math.max(4, rect.top - height - 8) : below;
+    box.style.left = `${left}px`;
+    box.style.top = `${top}px`;
+    box.onmouseenter = () => this.cancelHideHoverText();
+    box.onmouseleave = () => this.hideHoverText();
+    this.hoverEl = box;
+  }
+
+  private scheduleHideHoverText() {
+    this.cancelHideHoverText();
+    // 留点时间让鼠标移进浮层（长简介可以滚动看完）
+    this.hoverTimer = window.setTimeout(() => this.hideHoverText(), 200);
+  }
+
+  private cancelHideHoverText() {
+    if (this.hoverTimer !== null) {
+      window.clearTimeout(this.hoverTimer);
+      this.hoverTimer = null;
+    }
+  }
+
+  private hideHoverText() {
+    this.hoverEl?.remove();
+    this.hoverEl = null;
+  }
+
   /** 同一个书目录里有多个副本时，手动指定哪篇代表这本书 */
   private async setPrimary(book: BookItem) {
     const parent = book.file.parent;
@@ -341,18 +645,6 @@ export class BookShelfView extends ItemView {
       );
     }
     this.render();
-  }
-
-  /** 缺哪些关键字段，用来决定是否还显示「补全」 */
-  private missingFields(book: BookItem): string[] {
-    const miss: string[] = [];
-    if (!this.coverSrc(book.cover, book.file)) miss.push(t("封面"));
-    if (!book.author) miss.push(t("作者"));
-    const isWeread = asStr(book.frontmatter["doc_type"]).startsWith("weread");
-    if (this.s.requireDesc && !isWeread) {
-      if (!asStr(book.frontmatter["desc"])) miss.push(t("简介"));
-    }
-    return miss;
   }
 
   private remoteCache = new Map<string, string>();

@@ -13,6 +13,11 @@ export interface BookShelfSettings {
   coverField: string;
   authorField: string;
   translatorField: string;
+  /** 上次用的视图模式，切一次就记住，重开也保持 */
+  viewMode: "grid" | "list";
+  /** 上次用的排序方式和方向，同样记住 */
+  sortMode: string;
+  sortDesc: boolean;
   enableDouban: boolean;
   enableWeread: boolean;
   coverFileName: string;
@@ -42,6 +47,9 @@ export const DEFAULT_SETTINGS: BookShelfSettings = {
   coverField: "cover",
   authorField: "author",
   translatorField: "translator",
+  viewMode: "grid",
+  sortMode: "mtime",
+  sortDesc: true,
   enableDouban: true,
   enableWeread: true,
   coverFileName: "cover.jpg",

@@ -52,6 +52,202 @@
   white-space: nowrap;
 }
 
+.bs-viewtoggle {
+  display: flex;
+}
+
+.bs-viewtoggle .bs-btn {
+  border-radius: 0;
+}
+
+.bs-viewtoggle .bs-btn:first-child {
+  border-radius: 6px 0 0 6px;
+}
+
+.bs-viewtoggle .bs-btn:last-child {
+  border-radius: 0 6px 6px 0;
+  border-left: none;
+}
+
+.bs-viewtoggle .bs-btn.is-active {
+  background: var(--interactive-accent);
+  color: var(--text-on-accent);
+  border-color: var(--interactive-accent);
+}
+
+.bs-list-wrap {
+  overflow-x: auto;
+}
+
+.bs-table {
+  width: 100%;
+  min-width: 820px;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.bs-table th {
+  text-align: left;
+  font-weight: 600;
+  font-size: 12px;
+  color: var(--text-muted);
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--background-modifier-border);
+  white-space: nowrap;
+}
+
+.bs-table td {
+  padding: 7px 10px;
+  border-bottom: 1px solid var(--background-modifier-border);
+  vertical-align: middle;
+}
+
+.bs-table tbody tr:hover {
+  background: var(--background-secondary);
+}
+
+.bs-th-sort {
+  cursor: pointer;
+  user-select: none;
+}
+
+.bs-th-sort:hover {
+  color: var(--text-normal);
+}
+
+.bs-td-name {
+  font-weight: 600;
+  cursor: pointer;
+  max-width: 260px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bs-tag {
+  white-space: nowrap;
+}
+
+.bs-td-status {
+  white-space: nowrap;
+}
+
+.bs-hover-text {
+  position: fixed;
+  z-index: var(--layer-popover, 9999);
+  max-height: 320px;
+  overflow-y: auto;
+  padding: 8px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--background-modifier-border);
+  background: var(--background-primary);
+  color: var(--text-normal);
+  font-size: 12px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  word-break: break-word;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.28);
+}
+
+.bs-td-name:hover {
+  color: var(--text-accent);
+}
+
+.bs-td-sub {
+  font-size: 11px;
+  color: var(--text-faint);
+  margin-top: 2px;
+}
+
+.bs-td-muted {
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+/* 小封面列：悬停时在右上弹出大图（大图挂在 body 上，见 .bs-cover-preview） */
+.bs-col-cover {
+  width: 44px;
+  padding-right: 0 !important;
+}
+
+.bs-thumb {
+  width: 30px;
+  height: 42px;
+  border-radius: 3px;
+  overflow: hidden;
+  background: var(--background-modifier-border);
+  cursor: zoom-in;
+}
+
+.bs-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.bs-cover-preview {
+  position: fixed;
+  z-index: var(--layer-popover, 9999);
+  width: 160px;
+  height: 240px;
+  border-radius: 6px;
+  overflow: hidden;
+  pointer-events: none;
+  background: var(--background-primary);
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.35);
+}
+
+.bs-cover-preview img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+/* 简介列：单行截断，悬停看完整（title 属性） */
+.bs-td-desc {
+  max-width: 260px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-muted);
+}
+
+.bs-row-more {
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  line-height: 1;
+  font-size: 15px;
+  border-radius: 6px;
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--text-muted);
+  box-shadow: none;
+  cursor: pointer;
+}
+
+.bs-row-more:hover {
+  background: var(--interactive-hover);
+  border-color: var(--background-modifier-border);
+  color: var(--text-normal);
+}
+
+@media (max-width: 600px) {
+  .bs-col-author,
+  .bs-col-num,
+  .bs-col-wide,
+  .bs-td-desc {
+    display: none;
+  }
+
+  .bs-table th,
+  .bs-table td {
+    padding: 6px 6px;
+  }
+}
+
 .bs-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
