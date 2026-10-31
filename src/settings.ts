@@ -3,7 +3,7 @@ import type { SettingDefinitionItem } from "obsidian";
 import type BookShelfPlugin from "./main";
 import { ActivityStore } from "./activity";
 import { FolderSuggest } from "./folderSuggest";
-import { GITHUB_ISSUES_URL, KOFI_URL, WECHAT_REWARD_IMAGE } from "./links";
+import { DONATE_URL, GITHUB_ISSUES_URL, KOFI_URL } from "./links";
 import { t } from "./i18n";
 
 export interface BookShelfSettings {
@@ -347,33 +347,14 @@ export class BookShelfSettingTab extends PluginSettingTab {
         bc.setButtonText("Issues").onClick(() => window.open(GITHUB_ISSUES_URL))
       );
 
-    const donate = new Setting(containerEl)
+    new Setting(containerEl)
       .setName(t("打赏"))
-      .setDesc(
-        KOFI_URL
-          ? t("插件免费、代码开源。觉得有用就请我喝杯咖啡，帮我把它继续做下去")
-          : t("插件免费、代码开源。觉得有用就扫码请我喝杯咖啡，帮我把它继续做下去")
-      );
-    if (KOFI_URL) {
-      donate.addButton((bc) => {
+      .setDesc(KOFI_URL ? t("插件免费、代码开源。觉得有用就请我喝杯咖啡，帮我把它继续做下去") : t("插件免费、代码开源。觉得有用就请我喝杯咖啡（微信赞赏码在项目主页）"))
+      .addButton((bc) => {
         bc.buttonEl.addClass("bs-donate-btn");
-        bc.setButtonText("Buy me a coffee").onClick(() => window.open(KOFI_URL));
+        bc.setButtonText("Buy me a coffee").onClick(() =>
+          window.open(KOFI_URL || DONATE_URL)
+        );
       });
-    }
-
-    // 微信赞赏码：图在就显示，海外用户仍走上面的 Ko-fi
-    const dir = this.plugin.manifest.dir;
-    if (!dir) return;
-    const rel = `${dir}/${WECHAT_REWARD_IMAGE}`;
-    void this.app.vault.adapter.exists(rel).then((ok) => {
-      if (!ok) return;
-      const src = this.app.vault.adapter.getResourcePath(rel);
-      const wrap = containerEl.createDiv({ cls: "bs-reward" });
-      wrap.createEl("p", {
-        cls: "bs-reward-tip",
-        text: t("微信长按或扫一扫识别下面的赞赏码，金额随意，都是鼓励"),
-      });
-      wrap.createEl("img", { attr: { src, alt: t("微信赞赏码") } });
-    });
   }
 }

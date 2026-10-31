@@ -164,11 +164,8 @@ export const EN: Record<string, string> = {
   "打赏": "Donate",
   "插件免费、代码开源。觉得有用就请我喝杯咖啡，帮我把它继续做下去":
     "The plugin is free and open source. If it helps you, consider buying me a coffee to keep it going.",
-  "插件免费、代码开源。觉得有用就扫码请我喝杯咖啡，帮我把它继续做下去":
-    "The plugin is free and open source. If it helps you, scan the code below to buy me a coffee.",
-  "微信长按或扫一扫识别下面的赞赏码，金额随意，都是鼓励":
-    "Scan or long-press the WeChat code below to tip any amount. Every bit is encouragement.",
-  "微信赞赏码": "WeChat tip QR code",
+  "插件免费、代码开源。觉得有用就请我喝杯咖啡（微信赞赏码在项目主页）":
+    "The plugin is free and open source. If it helps you, consider buying me a coffee — the WeChat QR code is on the project page.",
   "{label}阅读天数": "{label} days reading",
   "{label}动手天数": "{label} days active",
   "有编辑记录的天数": "Days with edit records",

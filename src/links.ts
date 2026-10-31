@@ -6,11 +6,11 @@
 export const GITHUB_REPO_URL = "https://github.com/mazaoshe/ypp-book-shelf";
 export const GITHUB_ISSUES_URL = `${GITHUB_REPO_URL}/issues`;
 
-/**
- * Ko-fi 打赏页。还没注册，先留空：留空时设置页不显示 Ko-fi 按钮，只留微信赞赏码。
- * 注册后填成 https://ko-fi.com/<你的用户名> 即可。
- */
+/** Ko-fi 打赏页。注册后填 https://ko-fi.com/<用户名>，按钮就变成直接打开它 */
 export const KOFI_URL = "";
 
-/** 微信赞赏码图片，放在仓库 images/ 下，构建后拷进插件目录 */
+/** 没填 Ko-fi 时，打赏按钮跳到 README 的 Donate 区（二维码放那里） */
+export const DONATE_URL = `${GITHUB_REPO_URL}#donate`;
+
+/** 微信赞赏码图片，只用于 README，不进插件 */
 export const WECHAT_REWARD_IMAGE = "images/wx-reward.png";

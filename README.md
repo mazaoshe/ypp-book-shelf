@@ -26,13 +26,17 @@ Browse the book notes in your vault as a cover shelf, and complete covers and me
 
 ## 截图 / Screenshots
 
-| 书架 Book shelf | 阅读统计 Reading stats |
+| 书架 Book shelf | 列表 List |
 |---|---|
-| ![书架](./images/shelf.jpg) | ![阅读统计](./images/stats.jpg) |
+| ![书架](./images/shelf.jpg) | ![列表](./images/list.jpg) |
 
-| 新建书籍 New book | 设置 Settings |
+| 阅读统计 Reading stats | 新建书籍 New book |
 |---|---|
-| ![新建书籍](./images/new-book.jpg) | ![设置](./images/settings.jpg) |
+| ![阅读统计](./images/stats.jpg) | ![新建书籍](./images/new-book.jpg) |
+
+| 设置 Settings |
+|---|
+| ![设置](./images/settings.jpg) |
 
 ## 安装 / Install
 
@@ -124,18 +128,17 @@ See [CHANGELOG.md](./CHANGELOG.md) for the full history; the current version is 
 
 用着有问题、想提需求，去 [GitHub Issues](https://github.com/mazaoshe/ypp-book-shelf/issues) 留一句，能附上 Obsidian 版本和报错就更好查。
 
-觉得这个插件有用，可以扫码请我喝杯咖啡：
+Found a bug or want a feature? Open an issue on [GitHub](https://github.com/mazaoshe/ypp-book-shelf/issues); including your Obsidian version and any error message helps a lot.
+
+## Donate
+
+插件免费、代码开源。如果它帮你省下一点时间，欢迎扫码请我喝杯咖啡：
 
 <figure><img src="./images/wx-reward.png" alt="微信赞赏码" width="220"></figure>
 
 用微信扫一扫或长按识别，金额随意，都是鼓励。打赏不是买服务，插件的问题照旧走 Issues。
 
-Found a bug or want a feature? Open an issue on [GitHub](https://github.com/mazaoshe/ypp-book-shelf/issues); including your Obsidian version and any error message helps a lot.
-
-If this plugin saves you some time, you can buy me a coffee:
-<figure><img src="./images/wx-reward.png" alt="WeChat tip QR code" width="220"></figure>
-
-Scan it in WeChat (any amount). Donations are not a support contract — issues still go to GitHub as usual.
+The plugin is free and open source. If it saves you some time, you can buy me a coffee by scanning the WeChat code above (any amount). Donations are not a support contract — issues still go to GitHub as usual.
 
 ## License
 
