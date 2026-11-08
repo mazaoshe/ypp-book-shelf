@@ -50,6 +50,10 @@ export interface BookItem {
   publisher: string;
   cover: string;
   status: string;
+  /** 读完日期，frontmatter 原值；没填为空串 */
+  finishedDate: string;
+  /** 阅读途径，归一成固定值；认不出的原样保留 */
+  source: string;
   /** ISBN，列表视图当书名副标题 */
   isbn: string;
   /** 页数，0 表示没填（只来自豆瓣详情页） */

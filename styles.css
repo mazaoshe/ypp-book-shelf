@@ -81,7 +81,7 @@
 
 .bs-table {
   width: 100%;
-  min-width: 820px;
+  min-width: 1000px;
   border-collapse: collapse;
   font-size: 13px;
 }
@@ -176,6 +176,45 @@
 .bs-td-muted {
   color: var(--text-muted);
   white-space: nowrap;
+}
+
+/* 属性列：内容可能很长，限宽省略，完整值看 title */
+.bs-table .bs-td-prop {
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* 行内编辑：日期、阅读途径、阅读状态点一下就能改 */
+.bs-table td.bs-editable {
+  cursor: pointer;
+}
+
+.bs-table td.bs-editable:hover {
+  background: var(--background-modifier-hover);
+}
+
+.bs-table td.bs-cell-editing {
+  overflow: visible;
+  padding-top: 2px;
+  padding-bottom: 2px;
+}
+
+.bs-inline-editor {
+  width: 100%;
+  min-width: 84px;
+  height: 26px;
+  padding: 1px 4px;
+  border: 1px solid var(--interactive-accent);
+  border-radius: 4px;
+  background: var(--background-primary);
+  color: var(--text-normal);
+  font-size: 12px;
+}
+
+.bs-inline-editor:focus {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--background-modifier-border-focus);
 }
 
 /* 小封面列：悬停时在右上弹出大图（大图挂在 body 上，见 .bs-cover-preview） */
@@ -277,6 +316,8 @@
   overflow: hidden;
   display: flex;
   flex-direction: column;
+  /* 所有卡片统一高度，书名/标签再长也不把卡片撑高 */
+  height: 340px;
   transition: transform 0.12s ease, box-shadow 0.12s ease;
 }
 
@@ -312,17 +353,20 @@
 .bs-cover {
   cursor: pointer;
   background: var(--background-secondary-alt);
-  aspect-ratio: 2 / 3;
+  /* 封面固定高度，所有卡片封面区域一致，不随正文内容伸缩 */
+  flex: 0 0 220px;
+  height: 220px;
+  aspect-ratio: auto;
   overflow: hidden;
   display: flex;
-  align-items: stretch;
+  align-items: center;
   justify-content: center;
 }
 
 .bs-cover img {
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: contain;
   display: block;
 }
 
@@ -344,10 +388,14 @@
 }
 
 .bs-body {
-  padding: 8px 10px 10px;
+  padding: 10px 10px 12px;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 8px;
+  /* 封面固定后，正文占满剩余高度，内容再多也不改变卡片尺寸 */
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .bs-title {
@@ -375,8 +423,10 @@
 
 .bs-tags {
   display: flex;
-  gap: 4px;
+  gap: 5px;
   flex-wrap: wrap;
+  /* 标签贴到卡片底部，避免标签下面留一块空白 */
+  margin-top: auto;
 }
 
 .bs-tag {
@@ -390,6 +440,82 @@
 .bs-tag-rating {
   background: var(--color-yellow);
   color: var(--text-on-accent);
+}
+
+/* 阅读状态 / 阅读途径：用不同颜色把网格和列表里的书区分开 */
+.bs-tag-status,
+.bs-tag-source {
+  border: 1px solid color-mix(in srgb, var(--bs-tone) 45%, transparent);
+  background: color-mix(in srgb, var(--bs-tone) 15%, transparent);
+  color: var(--bs-tone);
+}
+
+.bs-status-want {
+  --bs-tone: var(--color-blue);
+}
+
+.bs-status-reading {
+  --bs-tone: var(--color-orange);
+}
+
+.bs-status-finished {
+  --bs-tone: var(--color-green);
+}
+
+.bs-status-dropped {
+  --bs-tone: var(--color-red);
+}
+
+.bs-status-other {
+  --bs-tone: var(--text-muted);
+}
+
+.bs-source-weread {
+  --bs-tone: var(--color-green);
+}
+
+.bs-source-paper {
+  --bs-tone: var(--color-orange);
+}
+
+.bs-source-kindle {
+  --bs-tone: var(--color-blue);
+}
+
+.bs-source-ebook {
+  --bs-tone: var(--color-cyan);
+}
+
+.bs-source-audio {
+  --bs-tone: var(--color-purple);
+}
+
+.bs-source-other {
+  --bs-tone: var(--text-muted);
+}
+
+.bs-source-tone-1 {
+  --bs-tone: var(--color-blue);
+}
+
+.bs-source-tone-2 {
+  --bs-tone: var(--color-green);
+}
+
+.bs-source-tone-3 {
+  --bs-tone: var(--color-orange);
+}
+
+.bs-source-tone-4 {
+  --bs-tone: var(--color-purple);
+}
+
+.bs-source-tone-5 {
+  --bs-tone: var(--color-cyan);
+}
+
+.bs-source-tone-6 {
+  --bs-tone: var(--color-red);
 }
 
 .bs-actions {
@@ -412,6 +538,112 @@
   display: flex;
   gap: 8px;
   margin: 10px 0;
+}
+
+/* 列设置弹窗 */
+.bs-col-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 8px 0 14px;
+  max-height: 50vh;
+  overflow-y: auto;
+}
+
+.bs-col-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 4px;
+  border-radius: 6px;
+}
+
+.bs-col-row:hover {
+  background: var(--background-modifier-hover);
+}
+
+.bs-col-row.is-dragging {
+  opacity: 0.4;
+}
+
+.bs-col-row.is-drop-target {
+  box-shadow: inset 0 2px 0 var(--interactive-accent);
+}
+
+.bs-col-drag {
+  cursor: grab;
+  user-select: none;
+  color: var(--text-faint);
+  padding: 0 2px;
+}
+
+.bs-col-drag:active {
+  cursor: grabbing;
+}
+
+.bs-col-row input[type="checkbox"] {
+  margin: 0;
+}
+
+.bs-col-label-input {
+  width: 130px;
+  padding: 3px 6px;
+  border-radius: 4px;
+  border: 1px solid var(--background-modifier-border);
+  background: var(--background-primary);
+  color: var(--text-normal);
+}
+
+.bs-col-key {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+  color: var(--text-faint);
+}
+
+.bs-col-icon {
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.bs-col-icon:hover:not(:disabled) {
+  background: var(--background-modifier-hover);
+  color: var(--text-normal);
+}
+
+.bs-col-icon:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
+.bs-col-icon-placeholder {
+  display: inline-block;
+  width: 24px;
+}
+
+.bs-col-add {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 14px;
+}
+
+.bs-col-add-input {
+  flex: 1;
+  padding: 5px 8px;
+  border-radius: 4px;
+  border: 1px solid var(--background-modifier-border);
+  background: var(--background-primary);
+  color: var(--text-normal);
 }
 
 .bs-modal-input {

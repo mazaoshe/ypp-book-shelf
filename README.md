@@ -11,6 +11,7 @@ Browse the book notes in your vault as a cover shelf, and complete covers and me
 - 一键从微信读书搜索书名，写入封面、作者、出版社、简介、评分
 - 可选再从豆瓣补 ISBN、页数、出版年、出版社
 - 新建书籍时按固定版式生成笔记（bookinfo 卡片 + 简介 callout + 标准属性）
+- 补全现有笔记时同步已有卡片、封面与空简介；保留手写简介，不给旧笔记强加版式
 - 缺字段的书显示「补全」按钮，右键（手机上点「⋯」）可重新拉取
 - 阅读统计：按天记录你编辑过哪些书，画出年历热力图、每月柱状图、偏好分析（分类雷达 + 作者 / 出版社 Top）
 - 统计对象可以是书籍目录，也可以换成任意目录（比如统计写作天数）
@@ -20,6 +21,7 @@ Browse the book notes in your vault as a cover shelf, and complete covers and me
 - Search WeRead by title and write the cover, author, publisher, description and rating into the note with one click.
 - Optionally enrich the note from Douban with ISBN, page count, publication year and publisher.
 - Create new book notes from a fixed template (bookinfo card, description callout, standard frontmatter).
+- Completing an existing note refreshes its existing card and cover and fills an empty description, preserving handwritten descriptions and notes without that template.
 - Notes missing fields show a "complete" button; right-click (or "⋯" on mobile) re-fetches the metadata.
 - Reading stats: records which books you edited each day and draws a year heatmap, monthly bars and preference charts (category radar, top authors and publishers).
 - The stats can target any folder, for example a `Content` folder to track writing days instead of reading.
@@ -143,3 +145,12 @@ The plugin is free and open source. If it saves you some time, you can buy me a 
 ## License
 
 MIT
+
+
+## 0.5.0 开发中
+
+阅读年份可按 `finishedDate` 筛选（全部、指定年、未填写有效日期），并与搜索、状态、分类及排序组合。统计页新增历年已读数量与已读书籍阅读途径分布，空日期和空途径单列；这部分使用全部已读藏书，与编辑活动时间范围独立。
+
+书籍元数据查询新增本地缓存（7 天、最多 200 项），插件重载后可复用。通过命令面板“清空书籍元数据缓存”强制后续查询重新获取。缓存损坏或写入失败不会阻断检索；数据源不可用时仍使用现有错误处理，不提供过期缓存回退。
+
+开发验证：`npm test`、`npm run build`、`npm run lint`。实际进度与发布前待办见 [0.5.0 进度](docs/0.5.0-progress.md)。共享种子库建议推迟，移动端完整测试留待后续。

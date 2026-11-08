@@ -4,9 +4,21 @@ import { FetchModal } from "./fetchModal";
 import { listSep, t } from "./i18n";
 import { DeleteBookModal } from "./deleteModal";
 import { BookItem, MissingKey } from "./types";
+import {
+  columnLabel,
+  defaultDesc,
+  isSortable,
+  parseSortMode,
+  propValue,
+  sortModeFor,
+  type ColumnConfig,
+} from "./columns";
 import { collectBooks, countWords } from "./library";
+import { attachInlineEdit } from "./inlineEdit";
 import { asStr } from "./fm";
 import { childFiles } from "./vaultScope";
+
+import { readingYear, matchesShelfFilters } from "./reading";
 
 export const VIEW_TYPE_BOOK_SHELF = "book-shelf-view";
 
@@ -14,6 +26,7 @@ export class BookShelfView extends ItemView {
   plugin: BookShelfPlugin;
   private searchText = "";
   private statusFilter = "全部";
+  private yearFilter = "all";
   private categoryFilter = "全部";
   private viewMode: "grid" | "list" = "grid";
   private sortMode = "mtime";
@@ -163,6 +176,20 @@ export class BookShelfView extends ItemView {
       this.renderItems();
     };
 
+    const years = [...new Set(this.books.map((b) => readingYear(b.finishedDate)).filter(Boolean))].sort().reverse();
+    if (this.yearFilter !== "all" && this.yearFilter !== "unknown" && !years.includes(this.yearFilter)) this.yearFilter = "all";
+    const yearSelect = bar.createEl("select", { cls: "dropdown" });
+    yearSelect.title = t("按读完年份筛选");
+    yearSelect.setAttribute("aria-label", t("按读完年份筛选"));
+    for (const year of ["all", ...years, "unknown"]) {
+      const option = yearSelect.createEl("option", {
+        value: year,
+        text: year === "all" ? t("全部阅读年份") : year === "unknown" ? t("未填写有效读完日期") : year,
+      });
+      option.selected = year === this.yearFilter;
+    }
+    yearSelect.onchange = () => { this.yearFilter = yearSelect.value; this.renderItems(); };
+
     const toggle = bar.createDiv({ cls: "bs-viewtoggle" });
     const modes: ["grid" | "list", string][] = [
       ["grid", t("网格")],
@@ -195,7 +222,19 @@ export class BookShelfView extends ItemView {
       ["translator", t("按译者")],
       ["publisher", t("按出版社")],
     ];
-    if (!sortOptions.some(([v]) => v === this.sortMode)) this.sortMode = "mtime";
+    // 属性列排序（点表头进来的）也要能在下拉里显示当前项
+    const currentMode = parseSortMode(this.sortMode);
+    if (currentMode?.kind === "prop") {
+      const col = (this.plugin.settings.columns ?? []).find(
+        (c) => c.kind === "prop" && c.key === currentMode.key
+      );
+      sortOptions.push([
+        this.sortMode,
+        t("按{col}", { col: col ? columnLabel(col) : currentMode.key }),
+      ]);
+    } else if (!sortOptions.some(([v]) => v === this.sortMode)) {
+      this.sortMode = "mtime";
+    }
     for (const [value, label] of sortOptions) {
       const opt = sortSelect.createEl("option", { text: label, value });
       if (value === this.sortMode) opt.selected = true;
@@ -262,20 +301,7 @@ export class BookShelfView extends ItemView {
   }
 
   private filteredBooks(): BookItem[] {
-    const q = this.searchText.trim().toLowerCase();
-    let list = this.books.filter((b) => {
-      if (this.statusFilter !== "全部" && b.status !== this.statusFilter) return false;
-      if (
-        this.categoryFilter !== "全部" &&
-        !b.categories.includes(this.categoryFilter)
-      ) {
-        return false;
-      }
-      if (!q) return true;
-      return (
-        b.title.toLowerCase().includes(q) || b.author.toLowerCase().includes(q)
-      );
-    });
+    let list = this.books.filter((b) => matchesShelfFilters(b, this.searchText, this.statusFilter, this.categoryFilter, this.yearFilter));
     const statusOrder = (s: string) =>
       s === "在读" ? 0 : s === "想读" ? 1 : s === "读完" ? 2 : 3;
     const scoreNum = (b: BookItem) => {
@@ -286,7 +312,14 @@ export class BookShelfView extends ItemView {
       return isNaN(n) ? 0 : n;
     };
     const dir = this.sortDesc ? -1 : 1;
+    const mode = parseSortMode(this.sortMode);
+    // 属性列的排序键：空值统一用 "~zzz" 垫底
+    const propKey = (b: BookItem) =>
+      mode?.kind === "prop" ? propValue(b, mode.key) || "~zzz" : "";
     const cmp = (a: BookItem, b: BookItem): number => {
+      if (mode?.kind === "prop") {
+        return propKey(a).localeCompare(propKey(b), "zh", { numeric: true });
+      }
       switch (this.sortMode) {
         case "title":
           return a.title.localeCompare(b.title, "zh");
@@ -377,7 +410,18 @@ export class BookShelfView extends ItemView {
       if (byline) body.createDiv({ cls: "bs-author", text: byline });
 
       const tags = body.createDiv({ cls: "bs-tags" });
-      if (book.status) tags.createSpan({ cls: "bs-tag", text: book.status });
+      if (book.status) {
+        tags.createSpan({
+          cls: `bs-tag bs-tag-status ${this.statusClass(book.status)}`,
+          text: book.status,
+        });
+      }
+      if (book.source) {
+        tags.createSpan({
+          cls: `bs-tag bs-tag-source ${this.sourceClass(book.source)}`,
+          text: book.source,
+        });
+      }
       const rating = asStr(book.frontmatter["rating"]);
       if (rating) tags.createSpan({ cls: "bs-tag bs-tag-rating", text: rating });
 
@@ -413,98 +457,77 @@ export class BookShelfView extends ItemView {
     }
   }
 
-  /** 列表视图：封面 / 书名 / 作者 / 译者 / 出版社 / 评分 / 页数 / 状态 / 笔记 / 简介，表头点击排序 */
+  /** 当前要显示的列：书名列始终在 */
+  private visibleColumns(): ColumnConfig[] {
+    const cols = this.plugin.settings.columns ?? [];
+    return cols.filter(
+      (c) => c.visible || (c.kind === "builtin" && c.key === "title")
+    );
+  }
+
+  /** 列的样式类，跟 styles.css 的 .bs-col-* 对应 */
+  private columnClass(col: ColumnConfig): string {
+    if (col.kind === "prop") return "bs-td-muted bs-col-wide bs-td-prop";
+    switch (col.key) {
+      case "cover":
+        return "bs-col-cover";
+      case "title":
+        return "bs-col-title";
+      case "author":
+        return "bs-col-author";
+      case "translator":
+      case "publisher":
+        return "bs-col-wide";
+      case "rating":
+      case "pages":
+      case "status":
+      case "words":
+        return "bs-col-num";
+      default:
+        return "bs-td-desc";
+    }
+  }
+
+  /** 列表视图：按设置里的列显隐渲染，表头点击排序 */
   private renderTable(list: BookItem[]) {
     this.hideCoverPreview();
     this.hideHoverText();
     const table = this.gridEl.createEl("table", { cls: "bs-table" });
     const headRow = table.createEl("thead").createEl("tr");
-    headRow.createEl("th", { cls: "bs-col-cover" });
-    const sortable: [string, string, string][] = [
-      ["title", t("书名"), ""],
-      ["author", t("作者"), " bs-col-author"],
-      ["translator", t("译者"), " bs-col-wide"],
-      ["publisher", t("出版社"), " bs-col-wide"],
-      ["rating", t("评分"), " bs-col-num"],
-      ["pages", t("页数"), " bs-col-num"],
-      ["status", t("状态"), " bs-col-num"],
-    ];
-    for (const [key, label, extraCls] of sortable) {
-      const th = headRow.createEl("th", { cls: `bs-th-sort${extraCls}` });
-      const arrow = this.sortMode === key ? (this.sortDesc ? " ↓" : " ↑") : "";
-      th.setText(label + arrow);
+    const columns = this.visibleColumns();
+    const pending: { file: TFile; cell: HTMLElement }[] = [];
+
+    // 表头：封面列没有文字，其余按列配置画
+    for (const col of columns) {
+      const cls = this.columnClass(col);
+      if (col.kind === "builtin" && col.key === "cover") {
+        headRow.createEl("th", { cls });
+        continue;
+      }
+      if (!isSortable(col)) {
+        headRow.createEl("th", { cls, text: columnLabel(col) });
+        continue;
+      }
+      const mode = sortModeFor(col);
+      const th = headRow.createEl("th", { cls: `bs-th-sort ${cls}` });
+      const arrow = this.sortMode === mode ? (this.sortDesc ? " ↓" : " ↑") : "";
+      th.setText(columnLabel(col) + arrow);
       th.onclick = () => {
-        if (this.sortMode === key) this.sortDesc = !this.sortDesc;
+        if (this.sortMode === mode) this.sortDesc = !this.sortDesc;
         else {
-          this.sortMode = key;
-          // 书名/作者/译者/出版社默认正序，数字和状态默认倒序
-          this.sortDesc = ["rating", "pages", "status", "category"].includes(key);
+          this.sortMode = mode;
+          this.sortDesc = defaultDesc(col);
         }
         this.persistSort();
         this.render();
       };
     }
-    headRow.createEl("th", { cls: "bs-col-num", text: t("字数") });
-    headRow.createEl("th", { text: t("简介") });
     headRow.createEl("th", { text: "" });
 
     const tbody = table.createEl("tbody");
-    const pending: { file: TFile; cell: HTMLElement }[] = [];
     for (const book of list) {
       const tr = tbody.createEl("tr");
-
-      // 小封面，鼠标悬停时在右边弹出大图
-      const coverTd = tr.createEl("td", { cls: "bs-col-cover" });
-      const thumb = coverTd.createDiv({ cls: "bs-thumb" });
-      const thumbSrc = this.coverSrc(book.cover, book.file);
-      if (thumbSrc) {
-        this.setThumbImage(thumb, thumbSrc);
-        thumb.onmouseenter = () => {
-          const img = thumb.querySelector("img");
-          if (img?.src) this.showCoverPreview(img.src, thumb);
-        };
-        thumb.onmouseleave = () => this.hideCoverPreview();
-      }
-
-      const titleTd = tr.createEl("td", { cls: "bs-td-title" });
-      const nameEl = titleTd.createDiv({ cls: "bs-td-name", text: book.title });
-      nameEl.onclick = () => this.app.workspace.getLeaf(false).openFile(book.file);
-      // 悬停看笔记内容：走 Obsidian 原生页面预览（需开启核心插件「页面预览」）
-      nameEl.onmouseenter = (evt: MouseEvent) => {
-        this.app.workspace.trigger("hover-link", {
-          event: evt,
-          source: "ypp-book-shelf",
-          hoverParent: this,
-          targetEl: nameEl,
-          linktext: book.file.path,
-          sourcePath: book.file.path,
-        });
-      };
-      if (book.isbn) titleTd.createDiv({ cls: "bs-td-sub", text: `ISBN ${book.isbn}` });
-
-      tr.createEl("td", { cls: "bs-td-muted bs-col-author", text: book.author || "—" });
-      tr.createEl("td", { cls: "bs-td-muted bs-col-wide", text: book.translator || "—" });
-      tr.createEl("td", { cls: "bs-td-muted bs-col-wide", text: book.publisher || "—" });
-      tr.createEl("td", { cls: "bs-td-muted bs-col-num", text: book.score || "—" });
-      tr.createEl("td", {
-        cls: "bs-td-muted bs-col-num",
-        text: book.pages ? String(book.pages) : "—",
-      });
-
-      const statusTd = tr.createEl("td", { cls: "bs-col-num bs-td-status" });
-      if (book.status) statusTd.createSpan({ cls: "bs-tag", text: book.status });
-      else statusTd.setText("—");
-
-      // 字数要读笔记正文，先占位，读完再填
-      const wordTd = tr.createEl("td", { cls: "bs-td-muted bs-col-num" });
-      wordTd.setText("…");
-      pending.push({ file: book.file, cell: wordTd });
-
-      const descTd = tr.createEl("td", { cls: "bs-td-desc", text: book.desc || "—" });
-      if (book.desc) {
-        descTd.onmouseenter = () => this.showHoverText(book.desc, descTd);
-        descTd.onmouseleave = () => this.scheduleHideHoverText();
-      }
+      for (const col of columns) this.renderTableCell(col, tr, book, pending);
 
       const moreBtn = tr.createEl("td").createEl("button", {
         cls: "bs-row-more",
@@ -523,6 +546,232 @@ export class BookShelfView extends ItemView {
     }
 
     void this.fillWordCounts(pending);
+  }
+
+  private renderTableCell(
+    col: ColumnConfig,
+    tr: HTMLTableRowElement,
+    book: BookItem,
+    pending: { file: TFile; cell: HTMLElement }[]
+  ) {
+    if (col.kind === "prop") {
+      if (col.key === "finishedDate") {
+        this.renderDateCell(tr, book);
+        return;
+      }
+      if (col.key === "readingSource") {
+        this.renderSourceCell(tr, book);
+        return;
+      }
+      const value = propValue(book, col.key);
+      const td = tr.createEl("td", {
+        cls: "bs-td-muted bs-td-prop",
+        text: value || "—",
+      });
+      if (value) td.title = value;
+      return;
+    }
+    switch (col.key) {
+      case "cover": {
+        // 小封面，鼠标悬停时在右边弹出大图
+        const coverTd = tr.createEl("td", { cls: "bs-col-cover" });
+        const thumb = coverTd.createDiv({ cls: "bs-thumb" });
+        const thumbSrc = this.coverSrc(book.cover, book.file);
+        if (thumbSrc) {
+          this.setThumbImage(thumb, thumbSrc);
+          thumb.onmouseenter = () => {
+            const img = thumb.querySelector("img");
+            if (img?.src) this.showCoverPreview(img.src, thumb);
+          };
+          thumb.onmouseleave = () => this.hideCoverPreview();
+        }
+        return;
+      }
+      case "title": {
+        const titleTd = tr.createEl("td", { cls: "bs-td-title" });
+        const nameEl = titleTd.createDiv({ cls: "bs-td-name", text: book.title });
+        nameEl.onclick = () => this.app.workspace.getLeaf(false).openFile(book.file);
+        // 悬停看笔记内容：走 Obsidian 原生页面预览（需开启核心插件「页面预览」）
+        nameEl.onmouseenter = (evt: MouseEvent) => {
+          this.app.workspace.trigger("hover-link", {
+            event: evt,
+            source: "ypp-book-shelf",
+            hoverParent: this,
+            targetEl: nameEl,
+            linktext: book.file.path,
+            sourcePath: book.file.path,
+          });
+        };
+        if (book.isbn)
+          titleTd.createDiv({ cls: "bs-td-sub", text: `ISBN ${book.isbn}` });
+        return;
+      }
+      case "author":
+        tr.createEl("td", {
+          cls: "bs-td-muted bs-col-author",
+          text: book.author || "—",
+        });
+        return;
+      case "translator":
+        tr.createEl("td", {
+          cls: "bs-td-muted bs-col-wide",
+          text: book.translator || "—",
+        });
+        return;
+      case "publisher":
+        tr.createEl("td", {
+          cls: "bs-td-muted bs-col-wide",
+          text: book.publisher || "—",
+        });
+        return;
+      case "rating":
+        tr.createEl("td", {
+          cls: "bs-td-muted bs-col-num",
+          text: book.score || "—",
+        });
+        return;
+      case "pages":
+        tr.createEl("td", {
+          cls: "bs-td-muted bs-col-num",
+          text: book.pages ? String(book.pages) : "—",
+        });
+        return;
+      case "status": {
+        this.renderStatusCell(tr, book);
+        return;
+      }
+      case "words": {
+        // 字数要读笔记正文，先占位，读完再填
+        const wordTd = tr.createEl("td", { cls: "bs-td-muted bs-col-num" });
+        wordTd.setText("…");
+        pending.push({ file: book.file, cell: wordTd });
+        return;
+      }
+      case "desc": {
+        const descTd = tr.createEl("td", {
+          cls: "bs-td-desc",
+          text: book.desc || "—",
+        });
+        if (book.desc) {
+          descTd.onmouseenter = () => this.showHoverText(book.desc, descTd);
+          descTd.onmouseleave = () => this.scheduleHideHoverText();
+        }
+        return;
+      }
+    }
+  }
+
+  /** 阅读状态的颜色：想读蓝、在读橙、读完绿、弃读红，其他灰 */
+  private statusClass(status: string): string {
+    switch (status) {
+      case "想读":
+        return "bs-status-want";
+      case "在读":
+        return "bs-status-reading";
+      case "读完":
+        return "bs-status-finished";
+      case "弃读":
+        return "bs-status-dropped";
+      default:
+        return "bs-status-other";
+    }
+  }
+
+  /** 阅读途径的颜色：先按常见来源固定配色，自定义来源用稳定哈希分色 */
+  private sourceClass(source: string): string {
+    const key = source.trim().toLowerCase();
+    if (["微信读书", "微信阅读", "weread"].includes(key)) return "bs-source-weread";
+    if (["纸质书", "纸质", "实体书", "print", "print-book"].includes(key)) return "bs-source-paper";
+    if (["kindle", "kindle电子书"].includes(key)) return "bs-source-kindle";
+    if (["电子书", "电子", "pdf"].includes(key)) return "bs-source-ebook";
+    if (["听书", "有声书", "音频", "audio"].includes(key)) return "bs-source-audio";
+    if (["其他", "other"].includes(key)) return "bs-source-other";
+    let hash = 0;
+    for (let i = 0; i < source.length; i++) {
+      hash = (hash * 31 + source.charCodeAt(i)) >>> 0;
+    }
+    return `bs-source-tone-${(hash % 6) + 1}`;
+  }
+
+  private renderDateCell(tr: HTMLTableRowElement, book: BookItem) {
+    const td = tr.createEl("td", {
+      cls: "bs-td-muted bs-td-prop bs-editable",
+      text: book.finishedDate || "—",
+    });
+    td.title = t("点击编辑读完日期");
+    td.onclick = (e) => {
+      e.stopPropagation();
+      attachInlineEdit(td, {
+        kind: "date",
+        value: book.finishedDate,
+        ariaLabel: t("读完日期"),
+        onCommit: (value) => this.writeBookField(book, "finishedDate", value),
+      });
+    };
+  }
+
+  private renderSourceCell(tr: HTMLTableRowElement, book: BookItem) {
+    const td = tr.createEl("td", {
+      cls: "bs-td-muted bs-td-prop bs-editable",
+    });
+    if (book.source) {
+      td.createSpan({
+        cls: `bs-tag bs-tag-source ${this.sourceClass(book.source)}`,
+        text: book.source,
+      });
+    } else {
+      td.setText("—");
+    }
+    td.title = t("点击编辑阅读途径");
+    td.onclick = (e) => {
+      e.stopPropagation();
+      const options = (this.s.readingSources ?? []).map((value) => ({
+        value,
+        label: value,
+      }));
+      attachInlineEdit(td, {
+        kind: "select",
+        value: book.source,
+        options,
+        ariaLabel: t("阅读途径"),
+        onCommit: (value) => this.writeBookField(book, "readingSource", value),
+      });
+    };
+  }
+
+  private renderStatusCell(tr: HTMLTableRowElement, book: BookItem) {
+    const td = tr.createEl("td", { cls: "bs-col-num bs-td-status bs-editable" });
+    if (book.status) {
+      td.createSpan({
+        cls: `bs-tag bs-tag-status ${this.statusClass(book.status)}`,
+        text: book.status,
+      });
+    } else td.setText("—");
+    td.title = t("点击编辑阅读状态");
+    td.onclick = (e) => {
+      e.stopPropagation();
+      const options = ["想读", "在读", "读完", "弃读"].map((value) => ({
+        value,
+        label: t(value),
+      }));
+      attachInlineEdit(td, {
+        kind: "select",
+        value: book.status,
+        options,
+        ariaLabel: t("阅读状态"),
+        onCommit: (value) =>
+          this.writeBookField(book, this.s.statusField || "readingStatus", value),
+      });
+    };
+  }
+
+  /** 行内编辑统一走这里：写 frontmatter 后重新收集数据，列表立即刷新 */
+  private async writeBookField(book: BookItem, key: string, value: string) {
+    await this.app.fileManager.processFrontMatter(book.file, (fm: Record<string, unknown>) => {
+      fm[key] = value;
+    });
+    this.render();
+    this.plugin.refreshStats();
   }
 
   /** 排序方式也写回设置，下次打开沿用 */

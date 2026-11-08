@@ -5,6 +5,8 @@ export default defineConfig([
   {
     ignores: [
       "main.js",
+      "tests/**",
+      "work/**",
       "node_modules/**",
       "dist/**",
       "images/**",

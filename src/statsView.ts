@@ -11,6 +11,8 @@ import {
   longestStreak,
 } from "./activity";
 
+import { readingSummary } from "./reading";
+
 export const VIEW_TYPE_BOOK_STATS = "ypp-book-shelf-stats";
 
 type Range = "week" | "month" | "year" | "all";
@@ -46,6 +48,8 @@ export class BookStatsView extends ItemView {
 
   async onOpen() {
     this.render();
+    this.registerEvent(this.app.metadataCache.on("changed", () => this.render()));
+    this.registerEvent(this.app.vault.on("delete", () => this.render()));
   }
 
   render() {
@@ -69,7 +73,7 @@ export class BookStatsView extends ItemView {
       this.renderYearBars(charts);
     }
 
-    if (this.plugin.trackingBooks) this.renderPreferences(body);
+    if (this.plugin.trackingBooks) { this.renderReadingSummary(body); this.renderPreferences(body); }
   }
 
   private renderHeader(el: HTMLElement) {
@@ -508,6 +512,31 @@ export class BookStatsView extends ItemView {
   }
 
   // ---------- 偏好分析 ----------
+
+  private renderReadingSummary(body: HTMLElement) {
+    const summary = readingSummary(this.plugin.collectBooks());
+    const row = body.createDiv({ cls: "bs-pref-row" });
+    const sections: [string, [string, number][], boolean][] = [
+      [t("历年已读数量"), [...summary.years].sort(([a], [b]) => b.localeCompare(a)), true],
+      [t("已读书籍 · 阅读途径"), [...summary.sources].sort((a, b) => b[1] - a[1]), false],
+    ];
+    for (const [title, entries, isYear] of sections) {
+      const card = row.createDiv({ cls: "bs-pref-card" });
+      card.createDiv({ cls: "bs-chart-title", text: title });
+      if (!entries.length) card.createDiv({ text: t("暂无已读书籍"), cls: "bs-pref-empty" });
+      const max = Math.max(1, ...entries.map(([, n]) => n));
+      for (const [key, n] of entries) {
+        const line = card.createDiv({ cls: "bs-pref-line" });
+        const label = isYear && key === "unknown" ? t("未填写有效读完日期") : key || t("未设置阅读途径");
+        line.createSpan({ text: label });
+        line.createSpan({ text: t("{n} 本", { n }) });
+        const meter = card.createEl("meter");
+        meter.max = max; meter.value = n;
+        meter.setAttribute("aria-label", `${label}: ${n}`);
+      }
+    }
+    body.createDiv({ cls: "bs-hint", text: t("以上统计全部藏书中状态为读完的书籍；缺失或无效日期单列，阅读途径未填写单列，与编辑活动时间范围无关。") });
+  }
 
   private renderPreferences(body: HTMLElement) {
     const books = this.plugin.collectBooks();

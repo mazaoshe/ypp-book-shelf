@@ -11,7 +11,7 @@ import {
 } from "./sources";
 import { coverFileNameFor, downloadImage } from "./sources";
 import { BookMeta } from "./types";
-import { buildBookNote, DoubanLite } from "./noteTemplate";
+import { buildBookNote, patchBookInfo, DoubanLite, BookInfoPatch } from "./noteTemplate";
 import type { DoubanMeta } from "./types";
 import { asStr, getFm } from "./fm";
 import { markdownIn } from "./vaultScope";
@@ -538,7 +538,7 @@ export class FetchModal extends Modal {
     const file = this.file;
 
     // 封面先尝试存本地；失败保留外链，渲染时走 requestUrl 绕防盗链
-    const remoteCover = meta.cover || "";
+    const remoteCover = meta.cover || douban?.cover || "";
     let localCoverName: string | null = null;
     if (remoteCover && this.plugin.settings.downloadCover === true) {
       this.setStatus(t("正在下载封面…"));
@@ -547,6 +547,7 @@ export class FetchModal extends Modal {
 
     this.setStatus(t("正在写入属性…"));
     const overwrite = this.overwrite || isNew;
+    let card: BookInfoPatch = {};
 
     await this.app.fileManager.processFrontMatter(file, (fm: Record<string, unknown>) => {
       const setIfEmpty = (key: string, value: unknown) => {
@@ -594,7 +595,26 @@ export class FetchModal extends Modal {
       if (!fm[s.statusField || "readingStatus"]) {
         fm[s.statusField || "readingStatus"] = isNew ? "想读" : "在读";
       }
+      // Use the final attributes: fill-empty mode must not display rejected values.
+      card = {
+        isbn: asStr(fm.isbn),
+        author: asStr(fm[s.authorField || "author"]),
+        translator: asStr(fm.translator),
+        year: asStr(fm.yearPublished),
+        publisher: asStr(fm.publisher),
+        title: asStr(fm.title).replace(/^\[\[(.*)\]\]$/, "$1") || file.basename,
+        subjectId: douban?.subjectId,
+        rating: asStr(fm.doubanRating),
+        cover: asStr(fm[s.coverField || "cover"]),
+        intro: asStr(fm.desc),
+      };
     });
+
+    const text = await this.app.vault.read(file);
+    if (patchBookInfo(text, card) !== text) {
+      // Recompute against the latest text so concurrent edits outside the card survive.
+      await this.app.vault.process(file, (latest) => patchBookInfo(latest, card));
+    }
 
     this.setStatus(t("完成"));
     return file;

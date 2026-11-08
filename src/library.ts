@@ -25,6 +25,35 @@ export function normalizeStatus(raw: unknown): string {
   return STATUS_ALIASES[s] ?? s;
 }
 
+export const READING_SOURCE_ALIASES: Record<string, string> = {
+  微信读书: "微信读书",
+  微信阅读: "微信读书",
+  weread: "微信读书",
+  纸质书: "纸质书",
+  纸质: "纸质书",
+  实体书: "纸质书",
+  print: "纸质书",
+  "print-book": "纸质书",
+  kindle: "Kindle",
+  "kindle电子书": "Kindle",
+  电子书: "电子书",
+  电子: "电子书",
+  ebook: "电子书",
+  pdf: "电子书",
+  听书: "听书",
+  有声书: "听书",
+  音频: "听书",
+  audio: "听书",
+  其他: "其他",
+  other: "其他",
+};
+
+export function normalizeSource(raw: unknown): string {
+  const s = asStr(raw);
+  if (!s) return "";
+  return READING_SOURCE_ALIASES[s.toLowerCase()] ?? s;
+}
+
 /** 同目录下是否有本地封面文件（cover.jpg / png / jpeg / webp） */
 function hasLocalCover(app: App, file: TFile, s: BookShelfSettings): boolean {
   if (!file.parent) return false;
@@ -186,6 +215,8 @@ export function collectBooks(app: App, s: BookShelfSettings) {
     }
 
     const status = normalizeStatus(fm[s.statusField || "readingStatus"]);
+    const finishedDate = asStr(fm["finishedDate"]);
+    const source = normalizeSource(fm["readingSource"]);
 
     const isbn = asStr(fm["isbn"]);
     const pages = fmNum(fm, "pages", 0);
@@ -212,6 +243,8 @@ export function collectBooks(app: App, s: BookShelfSettings) {
       publisher,
       cover,
       status,
+      finishedDate,
+      source,
       isbn,
       pages,
       score,

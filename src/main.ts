@@ -1,14 +1,18 @@
+import { MetadataCache } from "./metadataCache";
+import { configureMetadataCache } from "./sources";
 import { Notice, Plugin, TFile, WorkspaceLeaf } from "obsidian";
 import {
   BookShelfSettings,
   DEFAULT_SETTINGS,
   BookShelfSettingTab,
+  normalizeReadingSources,
 } from "./settings";
 import { BookShelfView, VIEW_TYPE_BOOK_SHELF } from "./view";
 import { BookStatsView, VIEW_TYPE_BOOK_STATS } from "./statsView";
 import { ActivityTracker, dayKey, emptyActivity } from "./activity";
 import { collectBooks } from "./library";
 import { BookItem } from "./types";
+import { defaultColumns, normalizeColumns } from "./columns";
 import { asStr, getFm } from "./fm";
 import { t } from "./i18n";
 
@@ -18,6 +22,13 @@ export default class BookShelfPlugin extends Plugin {
 
   async onload() {
     await this.loadSettings();
+    const cachePath = `${this.manifest.dir ?? `${this.app.vault.configDir}/plugins/${this.manifest.id}`}/metadata-cache.json`;
+    const cache = new MetadataCache(async (text) => { await this.app.vault.adapter.write(cachePath, text); });
+    try { cache.restore(await this.app.vault.adapter.read(cachePath)); } catch { /* First run or unavailable cache. */ }
+    configureMetadataCache(cache);
+    this.addCommand({ id: "clear-metadata-cache", name: t("清空书籍元数据缓存"), callback: async () => {
+      await cache.clear();
+    } });
 
     this.registerView(
       VIEW_TYPE_BOOK_SHELF,
@@ -148,6 +159,23 @@ export default class BookShelfPlugin extends Plugin {
     const stored =
       data && typeof data === "object" ? (data as Partial<BookShelfSettings>) : {};
     this.settings = Object.assign({}, DEFAULT_SETTINGS, stored);
+    // 阅读途径选项：老设置没有这个字段时补默认值，并去重/去空
+    this.settings.readingSources = normalizeReadingSources(this.settings.readingSources);
+    // 列配置：新版本用 columns；0.5.0 开发中的 visibleColumns 老数据迁移一次
+    const storedRaw = stored as Record<string, unknown>;
+    if (Array.isArray(storedRaw.columns)) {
+      this.settings.columns = normalizeColumns(storedRaw.columns);
+    } else if (Array.isArray(storedRaw.visibleColumns)) {
+      const visible = new Set(storedRaw.visibleColumns as string[]);
+      this.settings.columns = defaultColumns().map((col) =>
+        col.kind === "builtin"
+          ? { ...col, visible: col.key === "title" || visible.has(col.key) }
+          : col
+      );
+      await this.saveData(this.settings);
+    } else {
+      this.settings.columns = defaultColumns();
+    }
     // 旧版默认按 type=books-summary 过滤，导致大量书漏掉；作废
     if (this.settings.typeValue === "books-summary") {
       this.settings.typeValue = "";

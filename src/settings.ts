@@ -5,6 +5,32 @@ import { ActivityStore } from "./activity";
 import { FolderSuggest } from "./folderSuggest";
 import { DONATE_URL, GITHUB_ISSUES_URL, KOFI_URL } from "./links";
 import { t } from "./i18n";
+import { defaultColumns, type ColumnConfig } from "./columns";
+import { ColumnModal } from "./columnModal";
+
+export const DEFAULT_READING_SOURCES = [
+  "微信读书",
+  "纸质书",
+  "Kindle",
+  "电子书",
+  "听书",
+  "其他",
+];
+
+/** 去空、去重；全空时回落到默认选项，避免下拉框没东西可选 */
+export function normalizeReadingSources(raw: unknown): string[] {
+  const values = Array.isArray(raw)
+    ? raw
+    : typeof raw === "string"
+      ? raw.split(/\r?\n|,/)
+      : [];
+  const out: string[] = [];
+  for (const value of values) {
+    const s = String(value).trim();
+    if (s && !out.includes(s)) out.push(s);
+  }
+  return out.length ? out : [...DEFAULT_READING_SOURCES];
+}
 
 export interface BookShelfSettings {
   folder: string;
@@ -38,6 +64,10 @@ export interface BookShelfSettings {
   trackTypeValue: string;
   /** 新建书籍时写入 type 的值，留空则不写 */
   newNoteType: string;
+  /** 列表里点「阅读途径」时可选的选项，一行一个 */
+  readingSources: string[];
+  /** 列表视图的列配置（含别名、显隐、顺序）；在书架工具栏的「列」按钮里改 */
+  columns: ColumnConfig[];
 }
 
 export const DEFAULT_SETTINGS: BookShelfSettings = {
@@ -59,11 +89,13 @@ export const DEFAULT_SETTINGS: BookShelfSettings = {
   defaultFrontmatter: "",
   /** 新建书籍时写入 type 的值，留空则不写 */
   newNoteType: "",
+  readingSources: [...DEFAULT_READING_SOURCES],
   activity: { days: {}, since: 0 },
   skipBatchSync: true,
   trackFolder: "",
   trackTypeField: "",
   trackTypeValue: "",
+  columns: defaultColumns(),
 };
 
 // 这些是 frontmatter 字段名/值的示例，必须保持小写，故用常量绕开 UI 文案大小写规则
@@ -145,6 +177,18 @@ export class BookShelfSettingTab extends PluginSettingTab {
             await this.plugin.saveSettings();
           })
       );
+
+    new Setting(containerEl)
+      .setName(t("阅读途径选项"))
+      .setDesc(t("列表里点「阅读途径」时出现的选项，一行一个"))
+      .addTextArea((tc) => {
+        tc.setValue((this.plugin.settings.readingSources ?? []).join("\n"))
+          .onChange(async (v) => {
+            this.plugin.settings.readingSources = normalizeReadingSources(v);
+            await this.plugin.saveSettings();
+          });
+        tc.inputEl.rows = 6;
+      });
 
     new Setting(containerEl)
       .setName(t("封面字段"))
@@ -252,6 +296,19 @@ export class BookShelfSettingTab extends PluginSettingTab {
             this.plugin.settings.newNoteType = v.trim();
             await this.plugin.saveSettings();
           })
+      );
+
+    new Setting(containerEl)
+      .setName(t("列表显示的列"))
+      .setDesc(
+        t(
+          "默认显示封面、书名、作者等内置列，外加读完日期和阅读途径。点按钮可以改别名、拖拽排序、增删属性列"
+        )
+      )
+      .addButton((bc) =>
+        bc
+          .setButtonText(t("配置列…"))
+          .onClick(() => new ColumnModal(this.app, this.plugin).open())
       );
 
     new Setting(containerEl)

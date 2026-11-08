@@ -1,3 +1,7 @@
+import { MetadataCache } from "./metadataCache";
+let metadataCache = new MetadataCache();
+export function configureMetadataCache(cache: MetadataCache) { metadataCache = cache; }
+
 import { requestUrl } from "obsidian";
 import { BookMeta, DoubanMeta } from "./types";
 import { t } from "./i18n";
@@ -45,7 +49,7 @@ function upgradeWereadCover(url: string): string {
  * 用微信读书的公开搜索接口查书。
  * 返回书名、作者、译者、出版社、简介、封面、评分，没有 ISBN 和页数。
  */
-export async function searchWeread(keyword: string): Promise<BookMeta[]> {
+async function searchWereadUncached(keyword: string): Promise<BookMeta[]> {
   const url = `${WEREAD_SEARCH}?keyword=${encodeURIComponent(keyword)}`;
   const res = await requestUrl({ url, method: "GET", throw: false });
   if (res.status !== 200) {
@@ -123,7 +127,7 @@ async function suggestDouban(keyword: string): Promise<DoubanSuggestItem[]> {
  * 用豆瓣的 suggest 接口搜索，返回书名、作者、封面、出版年。
  * 没有简介和评分，需要的话再抓详情页。
  */
-export async function searchDouban(keyword: string): Promise<BookMeta[]> {
+async function searchDoubanUncached(keyword: string): Promise<BookMeta[]> {
   const books = await suggestDouban(keyword);
   return books.map((b) => {
     const subjectId = String(b.url ?? "").match(/subject\/(\d+)/)?.[1] ?? "";
@@ -144,7 +148,7 @@ export async function searchDouban(keyword: string): Promise<BookMeta[]> {
  * 豆瓣网页接口：先 suggest 搜索，再抓详情页拿 ISBN / 页数 / 出版年。
  * 豆瓣详情页需要带 Referer，纯请求会 418。
  */
-export async function fetchDouban(
+async function fetchDoubanUncached(
   keyword: string,
   expectAuthor?: string
 ): Promise<DoubanMeta | null> {
@@ -215,7 +219,7 @@ function extractFirstJsonObject(text: string, fromIndex: number): unknown {
  * 得走 `search.douban.com/book/subject_search` 页面里的 `window.__DATA__`，
  * 拿到 subject id 后再抓详情页，最后校验 ISBN 对得上才返回。
  */
-export async function fetchDoubanByIsbn(isbn: string): Promise<DoubanMeta | null> {
+async function fetchDoubanByIsbnUncached(isbn: string): Promise<DoubanMeta | null> {
   const key = isbnKeyOf(isbn);
   if (!key) return null;
 
@@ -257,7 +261,7 @@ export function looksLikeIsbn(keyword: string): boolean {
  * 新建书籍时直接用 ISBN 搜：返回豆瓣那一条结果（带封面），
  * 搜不到就返回空数组，让上层提示没结果。
  */
-export async function searchDoubanByIsbn(isbn: string): Promise<BookMeta[]> {
+async function searchDoubanByIsbnUncached(isbn: string): Promise<BookMeta[]> {
   const meta = await fetchDoubanByIsbn(isbn);
   if (!meta || !meta.title) return [];
   return [
@@ -283,7 +287,7 @@ export async function searchDoubanByIsbn(isbn: string): Promise<BookMeta[]> {
 }
 
 /** 直接抓豆瓣详情页（已知 subject id 时用，省一次 suggest 请求） */
-export async function fetchDoubanById(subjectId: string): Promise<DoubanMeta | null> {
+async function fetchDoubanByIdUncached(subjectId: string): Promise<DoubanMeta | null> {
   if (!subjectId) return null;
 
   const dres = await requestUrl({
@@ -311,6 +315,8 @@ export async function fetchDoubanById(subjectId: string): Promise<DoubanMeta | n
     rating: pick(html, /property="v:average">\s*([0-9.]+)\s*</),
     desc: "",
   };
+  // A 200 response can be a challenge/login page; do not cache it as a book.
+  if (!meta.title) return null;
   const introMatch = html.match(/<div class="intro">([\s\S]*?)<\/div>/);
   if (introMatch) meta.desc = stripTags(introMatch[1]).slice(0, 600);
   return meta;
@@ -351,3 +357,12 @@ export function coverFileNameFor(url: string, base = "cover.jpg"): string {
   const ext = fromUrl || (fromBase === "jpeg" ? "jpg" : fromBase);
   return `${stem}.${ext}`;
 }
+
+// Source and operation are part of each key; author and ISBN affect matching.
+const queryKey = (s: string) => s.trim().replace(/\s+/g, " ");
+export const searchWeread = (keyword: string) => metadataCache.get(JSON.stringify(["weread-search", queryKey(keyword)]), () => searchWereadUncached(keyword));
+export const searchDouban = (keyword: string) => metadataCache.get(JSON.stringify(["douban-search", queryKey(keyword)]), () => searchDoubanUncached(keyword));
+export const fetchDouban = (keyword: string, author?: string) => metadataCache.get(JSON.stringify(["douban-match", queryKey(keyword), author || ""]), () => fetchDoubanUncached(keyword, author));
+export const fetchDoubanByIsbn = (isbn: string) => metadataCache.get(JSON.stringify(["douban-isbn", isbnKeyOf(isbn)]), () => fetchDoubanByIsbnUncached(isbn));
+export const searchDoubanByIsbn = (isbn: string) => metadataCache.get(JSON.stringify(["douban-isbn-search", isbnKeyOf(isbn)]), () => searchDoubanByIsbnUncached(isbn));
+export const fetchDoubanById = (id: string) => metadataCache.get(JSON.stringify(["douban-id", id]), () => fetchDoubanByIdUncached(id));
